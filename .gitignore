@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Credenciales NUNCA subir esto
+serviceAccountKey.json
+*serviceAccountKey*.json
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Carpetas de compilación
+dist/
+build/
+
+# Configuración local de editores
+.vscode/
