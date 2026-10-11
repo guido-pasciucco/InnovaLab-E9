@@ -22,4 +22,5 @@ build/
 # Configuración local de editores
 .vscode/
 
-#New branch push
+#Material adicional
+docs/

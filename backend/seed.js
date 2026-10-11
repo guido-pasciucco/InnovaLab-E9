@@ -65,27 +65,27 @@ async function seed() {
   });
 
   // Lista de versión (LOTBA)
-  await db.collection('listaVersiones').doc('ver_lotba_1').set({
+  await db.collection('listaVersion').doc('ver_lotba_1').set({
     origen: "lotba",
     fecha: new Date("2026-09-01T00:00:00Z"),
     cantidadDominios: 2,
     huella: "hash_lotba_v1"
   });
 
-  await db.collection('listaVersiones').doc('ver_lotba_1')
+  await db.collection('listaVersion').doc('ver_lotba_1')
     .collection('dominios').doc('dom1').set({
       dominio: "apuestasclandestinas.net",
       origen: "lotba"
     });
 
-  await db.collection('listaVersiones').doc('ver_lotba_1')
+  await db.collection('listaVersion').doc('ver_lotba_1')
     .collection('dominios').doc('dom2').set({
       dominio: "casinoilegal.bet",
       origen: "lotba"
     });
 
   // Lista de versión (personalizada de resp1)
-  await db.collection('listaVersiones').doc('ver_personal_resp1').set({
+  await db.collection('listaVersion').doc('ver_personal_resp1').set({
     origen: "personalizada",
     responsableId: "resp1",
     fecha: new Date("2026-09-10T00:00:00Z"),
@@ -93,7 +93,7 @@ async function seed() {
     huella: "hash_personal_resp1_v1"
   });
 
-  await db.collection('listaVersiones').doc('ver_personal_resp1')
+  await db.collection('listaVersion').doc('ver_personal_resp1')
     .collection('dominios').doc('dom1').set({
       dominio: "sitiosospechoso.com",
       origen: "personalizada"
