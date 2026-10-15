@@ -1,10 +1,24 @@
 require("dotenv").config({ path: require("node:path").join(__dirname, "..", ".env") });
 
 const mode = process.argv[2];
+const linkCode = process.argv[3];
 
 async function main() {
-  if (mode !== "responsable" && mode !== "anonimo") {
-    throw new Error("Uso: node scripts/auth-smoke-test.js responsable|anonimo");
+  const supportedModes = [
+    "responsable",
+    "anonimo",
+    "crear-codigo",
+    "canjear-codigo"
+  ];
+
+  if (!supportedModes.includes(mode)) {
+    throw new Error(
+      "Uso: node scripts/auth-smoke-test.js responsable|anonimo|crear-codigo|canjear-codigo [codigo]"
+    );
+  }
+
+  if (mode === "canjear-codigo" && !linkCode) {
+    throw new Error("Indica el código a canjear.");
   }
 
   const apiKey = process.env.FIREBASE_WEB_API_KEY;
@@ -12,10 +26,13 @@ async function main() {
     throw new Error("Falta FIREBASE_WEB_API_KEY en backend/.env");
   }
 
+  const authMode = mode === "crear-codigo" ? "responsable" :
+    mode === "canjear-codigo" ? "anonimo" :
+      mode;
   let authEndpoint;
   let authPayload;
 
-  if (mode === "responsable") {
+  if (authMode === "responsable") {
     if (!process.env.TEST_EMAIL || !process.env.TEST_PASSWORD) {
       throw new Error("Faltan TEST_EMAIL o TEST_PASSWORD en backend/.env");
     }
@@ -48,10 +65,31 @@ async function main() {
   }
 
   const apiUrl = process.env.API_URL || "http://localhost:3000";
-  const apiResponse = await fetch(`${apiUrl}/api/test-auth`, {
+  let endpoint = "/api/test-auth";
+  let method = "GET";
+  let requestBody;
+
+  if (mode === "crear-codigo") {
+    endpoint = "/api/link-codes";
+    method = "POST";
+  } else if (mode === "canjear-codigo") {
+    endpoint = "/api/link-codes/redeem";
+    method = "POST";
+    requestBody = {
+      codigo: linkCode,
+      nombreDispositivo: process.env.TEST_DEVICE_NAME || "Dispositivo de prueba",
+      plataforma: process.env.TEST_DEVICE_PLATFORM || "android",
+      versionApp: process.env.TEST_APP_VERSION || "1.0.0"
+    };
+  }
+
+  const apiResponse = await fetch(`${apiUrl}${endpoint}`, {
+    method,
     headers: {
-      Authorization: `Bearer ${authResult.idToken}`
-    }
+      Authorization: `Bearer ${authResult.idToken}`,
+      ...(requestBody ? { "Content-Type": "application/json" } : {})
+    },
+    ...(requestBody ? { body: JSON.stringify(requestBody) } : {})
   });
 
   const apiResult = await apiResponse.json();

@@ -138,7 +138,7 @@ async function seed() {
 
   // Código de vinculación
   await db.collection('codigosVinculacion').doc('cod1').set({
-    codigo: "483920",
+    codigo: "A5B09Q",
     responsableId: "resp1",
     creadoEn: new Date("2026-09-28T12:00:00Z"),
     expiraEn: new Date("2026-09-28T12:15:00Z"),
