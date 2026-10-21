@@ -8,9 +8,13 @@ interface Props {
 
 /**
  * Input de PIN del adulto responsable, requerido para modificar
- * configuraciones críticas en el dispositivo protegido (ver Desafío 5 del
- * informe de UX). Pendiente definir con Backend si el PIN es local o si
- * valida contra el login del Responsable.
+ * configuraciones críticas (ver Desafío 5 del informe de UX).
+ *
+ * Confirmado con Backend: el PIN es independiente del login. Cada
+ * responsable guarda un `pinHash` propio (colección `responsables`),
+ * separado del email/contraseña de la cuenta. Frontend nunca debe
+ * validar el PIN localmente ni guardarlo en texto plano — siempre se
+ * manda al backend para comparar contra el hash.
  */
 export function PinInput({ length = 4, onComplete }: Props) {
   const [pin, setPin] = useState('');
