@@ -7,13 +7,15 @@ async function main() {
   const supportedModes = [
     "responsable",
     "anonimo",
+    "registrar-responsable",
+    "crear-perfil",
     "crear-codigo",
     "canjear-codigo"
   ];
 
   if (!supportedModes.includes(mode)) {
     throw new Error(
-      "Uso: node scripts/auth-smoke-test.js responsable|anonimo|crear-codigo|canjear-codigo [codigo]"
+      "Uso: node scripts/auth-smoke-test.js responsable|anonimo|registrar-responsable|crear-perfil|crear-codigo|canjear-codigo [codigo]"
     );
   }
 
@@ -21,18 +23,41 @@ async function main() {
     throw new Error("Indica el código a canjear.");
   }
 
+  if (mode === "registrar-responsable" &&
+      (!process.env.REGISTRATION_EMAIL || !process.env.REGISTRATION_PASSWORD)) {
+    throw new Error(
+      "Faltan REGISTRATION_EMAIL o REGISTRATION_PASSWORD en backend/.env"
+    );
+  }
+
+  if ((mode === "registrar-responsable" || mode === "crear-perfil") &&
+      (!process.env.TEST_RESPONSIBLE_NAME ||
+       !process.env.TEST_RESPONSIBLE_BIRTH_DATE)) {
+    throw new Error(
+      "Faltan TEST_RESPONSIBLE_NAME o TEST_RESPONSIBLE_BIRTH_DATE en backend/.env"
+    );
+  }
+
   const apiKey = process.env.FIREBASE_WEB_API_KEY;
   if (!apiKey) {
     throw new Error("Falta FIREBASE_WEB_API_KEY en backend/.env");
   }
 
-  const authMode = mode === "crear-codigo" ? "responsable" :
+  const authMode = mode === "registrar-responsable" ? "registro" :
+    mode === "crear-perfil" || mode === "crear-codigo" ? "responsable" :
     mode === "canjear-codigo" ? "anonimo" :
       mode;
   let authEndpoint;
   let authPayload;
 
-  if (authMode === "responsable") {
+  if (authMode === "registro") {
+    authEndpoint = "signUp";
+    authPayload = {
+      email: process.env.REGISTRATION_EMAIL,
+      password: process.env.REGISTRATION_PASSWORD,
+      returnSecureToken: true
+    };
+  } else if (authMode === "responsable") {
     if (!process.env.TEST_EMAIL || !process.env.TEST_PASSWORD) {
       throw new Error("Faltan TEST_EMAIL o TEST_PASSWORD en backend/.env");
     }
@@ -69,7 +94,14 @@ async function main() {
   let method = "GET";
   let requestBody;
 
-  if (mode === "crear-codigo") {
+  if (mode === "registrar-responsable" || mode === "crear-perfil") {
+    endpoint = "/api/responsible-profile";
+    method = "POST";
+    requestBody = {
+      nombre: process.env.TEST_RESPONSIBLE_NAME,
+      fechaNacimiento: process.env.TEST_RESPONSIBLE_BIRTH_DATE
+    };
+  } else if (mode === "crear-codigo") {
     endpoint = "/api/link-codes";
     method = "POST";
   } else if (mode === "canjear-codigo") {

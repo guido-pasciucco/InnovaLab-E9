@@ -104,6 +104,20 @@ function getExpiryMillis(value) {
   return Number.isFinite(expiryMillis) ? expiryMillis : null;
 }
 
+function isIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    value <= new Date().toISOString().slice(0, 10);
+}
+
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
@@ -123,6 +137,176 @@ app.get("/api/test-auth", requireFirebaseAuth, (req, res) => {
     provider
   });
 });
+
+app.post(
+  "/api/responsible-profile",
+  requireFirebaseAuth,
+  requireProvider("password"),
+  async (req, res, next) => {
+    const nombre = typeof req.body?.nombre === "string"
+      ? req.body.nombre.trim()
+      : "";
+    const fechaNacimiento = req.body?.fechaNacimiento;
+    const email = req.firebaseUser.email;
+
+    if (!nombre || nombre.length > 100) {
+      return res.status(400).json({
+        error: "invalid_name",
+        message: "El nombre es obligatorio y no puede superar 100 caracteres."
+      });
+    }
+
+    if (!isIsoDate(fechaNacimiento)) {
+      return res.status(400).json({
+        error: "invalid_birth_date",
+        message: "La fecha de nacimiento debe ser válida y usar el formato YYYY-MM-DD."
+      });
+    }
+
+    if (typeof email !== "string" || !email) {
+      return res.status(403).json({
+        error: "email_required",
+        message: "La cuenta autenticada no tiene un email disponible."
+      });
+    }
+
+    const responsibleRef = db
+      .collection(RESPONSIBLE_COLLECTION)
+      .doc(req.firebaseUser.uid);
+
+    try {
+      const result = await db.runTransaction(async (transaction) => {
+        const profileSnapshot = await transaction.get(responsibleRef);
+
+        if (profileSnapshot.exists) {
+          const profile = profileSnapshot.data();
+          const sameProfile = profile.nombre === nombre &&
+            profile.fechaNacimiento === fechaNacimiento &&
+            profile.email === email;
+
+          if (!sameProfile) {
+            throw new HttpError(
+              409,
+              "responsible_profile_already_exists",
+              "Ya existe un perfil distinto para esta cuenta."
+            );
+          }
+
+          return false;
+        }
+
+        transaction.create(responsibleRef, {
+          nombre,
+          fechaNacimiento,
+          email,
+          fechaCreacion: FieldValue.serverTimestamp()
+        });
+
+        return true;
+      });
+
+      return res.status(result ? 201 : 200).json({
+        perfilCreado: true,
+        yaExistia: !result,
+        responsableId: req.firebaseUser.uid
+      });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return res.status(error.status).json({
+          error: error.code,
+          message: error.message
+        });
+      }
+
+      return next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/responsible-profile",
+  requireFirebaseAuth,
+  requireProvider("password"),
+  async (req, res, next) => {
+    const nombre = typeof req.body?.nombre === "string"
+      ? req.body.nombre.trim()
+      : "";
+    const fechaNacimiento = req.body?.fechaNacimiento;
+    const email = req.firebaseUser.email;
+
+    if (!nombre || nombre.length > 100) {
+      return res.status(400).json({
+        error: "invalid_name",
+        message: "El nombre es obligatorio y no puede superar 100 caracteres."
+      });
+    }
+
+    if (!isIsoDate(fechaNacimiento)) {
+      return res.status(400).json({
+        error: "invalid_birth_date",
+        message: "La fecha de nacimiento debe ser válida y usar el formato YYYY-MM-DD."
+      });
+    }
+
+    if (typeof email !== "string" || !email) {
+      return res.status(403).json({
+        error: "email_required",
+        message: "La cuenta autenticada no tiene un email disponible."
+      });
+    }
+
+    const responsibleRef = db
+      .collection(RESPONSIBLE_COLLECTION)
+      .doc(req.firebaseUser.uid);
+
+    try {
+      const result = await db.runTransaction(async (transaction) => {
+        const profileSnapshot = await transaction.get(responsibleRef);
+
+        if (profileSnapshot.exists) {
+          const profile = profileSnapshot.data();
+          const sameProfile = profile.nombre === nombre &&
+            profile.fechaNacimiento === fechaNacimiento &&
+            profile.email === email;
+
+          if (!sameProfile) {
+            throw new HttpError(
+              409,
+              "responsible_profile_already_exists",
+              "Ya existe un perfil distinto para esta cuenta."
+            );
+          }
+
+          return false;
+        }
+
+        transaction.create(responsibleRef, {
+          nombre,
+          fechaNacimiento,
+          email,
+          fechaCreacion: FieldValue.serverTimestamp()
+        });
+
+        return true;
+      });
+
+      return res.status(result ? 201 : 200).json({
+        perfilCreado: true,
+        yaExistia: !result,
+        responsableId: req.firebaseUser.uid
+      });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return res.status(error.status).json({
+          error: error.code,
+          message: error.message
+        });
+      }
+
+      return next(error);
+    }
+  }
+);
 
 app.post(
   "/api/link-codes",
