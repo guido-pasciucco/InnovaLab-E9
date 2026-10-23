@@ -10,12 +10,13 @@ async function main() {
     "registrar-responsable",
     "crear-perfil",
     "crear-codigo",
-    "canjear-codigo"
+    "canjear-codigo",
+    "crear-perfil-protegido"
   ];
 
   if (!supportedModes.includes(mode)) {
     throw new Error(
-      "Uso: node scripts/auth-smoke-test.js responsable|anonimo|registrar-responsable|crear-perfil|crear-codigo|canjear-codigo [codigo]"
+      "Uso: node scripts/auth-smoke-test.js responsable|anonimo|registrar-responsable|crear-perfil|crear-codigo|canjear-codigo|crear-perfil-protegido [codigo]"
     );
   }
 
@@ -38,13 +39,25 @@ async function main() {
     );
   }
 
+  if (mode === "crear-perfil-protegido" &&
+      (!process.env.TEST_DEVICE_UID ||
+       !process.env.TEST_PROTECTED_NAME ||
+       !process.env.TEST_PROTECTED_SURNAME ||
+       !process.env.TEST_PROTECTED_BIRTH_DATE ||
+       !process.env.TEST_PROTECTED_RELATIONSHIP)) {
+    throw new Error(
+      "Faltan TEST_DEVICE_UID o datos TEST_PROTECTED_* en backend/.env"
+    );
+  }
+
   const apiKey = process.env.FIREBASE_WEB_API_KEY;
   if (!apiKey) {
     throw new Error("Falta FIREBASE_WEB_API_KEY en backend/.env");
   }
 
   const authMode = mode === "registrar-responsable" ? "registro" :
-    mode === "crear-perfil" || mode === "crear-codigo" ? "responsable" :
+    mode === "crear-perfil" || mode === "crear-codigo" ||
+      mode === "crear-perfil-protegido" ? "responsable" :
     mode === "canjear-codigo" ? "anonimo" :
       mode;
   let authEndpoint;
@@ -100,6 +113,15 @@ async function main() {
     requestBody = {
       nombre: process.env.TEST_RESPONSIBLE_NAME,
       fechaNacimiento: process.env.TEST_RESPONSIBLE_BIRTH_DATE
+    };
+  } else if (mode === "crear-perfil-protegido") {
+    endpoint = `/api/devices/${encodeURIComponent(process.env.TEST_DEVICE_UID)}/protected-profile`;
+    method = "POST";
+    requestBody = {
+      nombre: process.env.TEST_PROTECTED_NAME,
+      apellido: process.env.TEST_PROTECTED_SURNAME,
+      fechaNacimiento: process.env.TEST_PROTECTED_BIRTH_DATE,
+      parentesco: process.env.TEST_PROTECTED_RELATIONSHIP
     };
   } else if (mode === "crear-codigo") {
     endpoint = "/api/link-codes";
