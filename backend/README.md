@@ -1,6 +1,6 @@
-# **Arquitectura de datos (issue \#22)**
+# **REPORTE DE AVANCES DE BACKEND**
 
-## Arquitectura para responsable, dispositivos vinculados, eventos y alertas
+## Arquitectura de Datos para responsable, dispositivos vinculados, eventos y alertas
 
 ## (Actualización: La Arquitectura presentada se dió por aprobada ya que no hubo objeciones del resto del equipo)
 
