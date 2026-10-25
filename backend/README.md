@@ -232,11 +232,11 @@ Por ejemplo, ante un código vencido, la app del responsable podría generar otr
 
 ### 
 
-## ⚠️ACTUALMENTE (15-10-26): El servidor se ejecutó localmente y el flujo se probó contra el proyecto Firebase sandbox; todavía no se integró con Mobile.
+## ⚠️ACTUALMENTE (25-10-26): El servidor se ejecutó localmente y los flujos se probaron contra el proyecto Firebase sandbox; todavía no se integró con Mobile.
 
 ## **Flujo de Vinculación de Dispositivos**
 
-**Estado**: autenticación y flujo básico de vinculación validados con cliente de prueba contra Firebase sandbox. El código alfanumérico de seis caracteres se genera, vence a los 15 minutos y se consume una sola vez mediante una transacción de Firestore. También están implementados los endpoints backend para crear el perfil del responsable y, después de vincular, crear el perfil protegido. **Pendiente:** integración desde Mobile, confirmación al responsable y prueba de escritura del perfil protegido con una sesión vinculada.
+**Estado**: autenticación y flujos de registro, vinculación y perfil protegido validados con el cliente de prueba contra Firebase sandbox. El código alfanumérico de seis caracteres se genera, vence a los 15 minutos y se consume una sola vez mediante una transacción de Firestore. El usuario reporta que completó las pruebas previstas y obtuvo los resultados esperados, incluyendo el registro del dispositivo, su asociación con el responsable y la creación del perfil protegido desde una sesión de responsable vinculada. **Pendiente:** integración desde Mobile y definición e implementación de la confirmación al responsable.
 
 Se probó una implementación super simplificada de este flujo, como se detalla a continuación:
 
@@ -246,8 +246,10 @@ Se probó una implementación super simplificada de este flujo, como se detalla 
 4. El dispositivo protegido inicia una sesión con Firebase Anonymous Auth y obtiene su propio ID token.  
 5. La persona escanea o escribe el código. El dispositivo envía ese código y sus datos a la API junto con su token.  
 6. El backend verifica que la sesión sea anónima, comprueba el código y, en una transacción, registra el dispositivo, lo asocia con el responsable y marca el código como usado. Un código vincula un solo dispositivo y no se puede reutilizar.
+7. El canje crea el **registro técnico** en `dispositivos/{deviceId}` usando el UID de la sesión anónima y los datos técnicos recibidos. No crea por sí mismo el perfil personal de la persona protegida.
+8. Después de la vinculación, el responsable completa el formulario de perfil protegido desde su app. Su sesión autenticada llama a `POST /api/devices/{deviceId}/protected-profile`; el backend confirma que ese responsable está asociado al dispositivo antes de guardar los datos personales en `dispositivos/{deviceId}/perfilProtegido/datos`.
 
-**Probado en el sandbox:** autenticación de ambos tipos de sesión, creación del código, canje, registro del dispositivo y asociación con el responsable. Es una evidencia sólida para mostrar al equipo.
+**Probado en el sandbox:** autenticación de responsable y sesión anónima; creación del perfil de responsable; generación del código; canje y consumo del código; registro del dispositivo y asociación con el responsable; y creación del perfil protegido con la sesión de un responsable vinculado. El usuario reporta que las pruebas completadas dieron los resultados esperados. Durante las pruebas también se detectó y corrigió un error de referencia en la creación del código, y la operación se volvió a probar correctamente.
 
 **Todavía no integrado en Mobile:** login real desde la app, solicitudes a los endpoints, escaneo/ingreso del código y confirmación en la pantalla del responsable. Hasta ahora, las llamadas las hizo el cliente de prueba.
 
@@ -256,6 +258,14 @@ Se probó una implementación super simplificada de este flujo, como se detalla 
 * Durante la prueba inicial de vinculación, el perfil del responsable en `responsables/{UID}` se creó manualmente. Crear una cuenta en Firebase Auth no crea automáticamente ese documento. Backend ya expone `POST /api/responsible-profile` para completar ese paso; Mobile aún debe llamarlo desde el registro de Frontend.
 * El cliente de prueba crea una sesión anónima nueva al ejecutar el modo de canje. Mobile deberá conservar la sesión de Firebase del dispositivo para mantener su UID.  
 * **⚠ ️Formato visible:** el QR debe contener el mismo código de seis caracteres que se ingresa manualmente.
+
+### **Alcance del canje y creación del perfil protegido**
+
+El canje y la creación del perfil personal son operaciones distintas. La sesión anónima identifica al dispositivo protegido y permite registrar sus metadatos técnicos y establecer la relación con el responsable; no acredita a quien ingresa datos personales ni aporta esos datos. Por eso, el perfil protegido no se crea automáticamente en la transacción de canje.
+
+El flujo recomendado es que, una vez confirmada la vinculación, el responsable complete los datos personales desde su propia app. La API ya permite hacerlo con `POST /api/devices/{deviceId}/protected-profile`, usando el ID token del responsable y el `deviceId` del dispositivo vinculado. El backend verifica la relación antes de guardar el perfil. Así se puede presentar como un solo recorrido de configuración en la experiencia Mobile, aunque técnicamente sean solicitudes separadas y autenticadas con sesiones distintas.
+
+Para que este recorrido sea completo, queda por definir cómo recibe la app del responsable la confirmación del canje y el `deviceId` del dispositivo: la confirmación en tiempo real continúa pendiente de acuerdo e implementación. Esta propuesta no implica compartir credenciales de Firebase ni habilitar acceso directo de Mobile a Firestore.
 
 ### **Contrato actual de API**
 
@@ -293,7 +303,7 @@ El cliente de prueba está en `scripts/auth-smoke-test.js`. El backend se organi
 ### **Pendientes para acordar con el equipo**
 
 * **Confirmación al responsable:** cómo se enterará su celular de que el dispositivo terminó de vincularse; el reporte propone tiempo real, pero aún debe definirse cómo lo implementará Mobile.  
-* **Registro del responsable y perfil protegido:** integrar desde Mobile las llamadas a `POST /api/responsible-profile` durante el registro y `POST /api/devices/{deviceId}/protected-profile` luego de la vinculación.
+* **Registro del responsable y perfil protegido:** integrar desde Mobile las llamadas a `POST /api/responsible-profile` durante el registro y `POST /api/devices/{deviceId}/protected-profile` luego de la vinculación. El perfil protegido se completa como paso posterior al canje, desde la sesión autenticada del responsable.
 * **Datos del dispositivo:** confirmar con Mobile qué valores reales enviará para nombre, plataforma y versión.  
 * **Errores en la experiencia:** definir qué mostrar ante código inválido, vencido o ya usado, o ante una sesión/token no válido.
 

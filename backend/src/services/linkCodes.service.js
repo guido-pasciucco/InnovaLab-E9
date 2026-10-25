@@ -65,7 +65,7 @@ async function createLinkCode(responsibleId) {
 
       transaction.create(codeRef, {
         codigo: code,
-        responsableId,
+        responsableId: responsibleId,
         creadoEn: FieldValue.serverTimestamp(),
         expiraEn: expiresAt,
         usado: false
