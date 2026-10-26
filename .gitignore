@@ -21,3 +21,6 @@ build/
 
 # Configuración local de editores
 .vscode/
+
+#Material adicional
+docs/
