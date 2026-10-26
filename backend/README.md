@@ -119,6 +119,37 @@ El perfil protegido se almacena separado de los metadatos técnicos del disposit
 | dominio | string | Dominio normalizado (minúsculas, sin protocolo/www/puerto/ruta) |
 | origen | string (enum) | "lotba" / "personalizada" |
 
+### **Importación inicial de la lista oficial LOTBA**
+
+El importador `scripts/import-lotba-list.js` lee el CSV de una columna `LINK`, normaliza URLs y dominios a hosts en minúsculas, quita el prefijo `www.` y las rutas, y elimina duplicados. Si un dominio aparece varias veces, conserva como referencia la fila de su última aparición. La app deberá aplicar coincidencia por dominio exacto o por sufijo `.` + dominio para bloquear también subdominios sin confundir, por ejemplo, `ejemplo.com` con `noejemplo.com`.
+
+La primera ejecución es una vista previa y no escribe en Firebase:
+
+```powershell
+npm run import:lotba
+```
+
+Para publicar la lista, agrega `--apply` y el ID del proyecto Firebase que debe coincidir con `project_id` de `serviceAccountKey.json`:
+
+```powershell
+npm run import:lotba -- --apply --project-id <project_id>
+```
+
+También se puede indicar otro archivo con `--file "ruta\al\archivo.csv"`. El importador usa la lista completa como una versión inmutable: crea documentos de dominio por lotes y el documento de versión al final, con las huellas del contenido y del archivo fuente. Solo después de verificar la versión, actualiza `configuracion/listas.lotbaVersionId` en una transacción para publicarla como activa. El ID de versión deriva del contenido normalizado, por lo que volver a importar el mismo conjunto no crea otra versión; si ya existe y está completa, se puede activar sin volver a cargar dominios. Las filas inválidas detienen la importación; no se ignoran silenciosamente.
+
+El supuesto actual es que cada CSV es la lista completa acumulada y que las entradas nuevas se agregan al final. Por ello, una entrega posterior se importa como una nueva fotografía; los dominios que ya no aparezcan dejarán de estar en esa versión. Mobile consulta la versión activa mediante `GET /api/blocklists/lotba/current`; el endpoint devuelve la lista completa cuando cambió la huella, o solo metadatos si el cliente ya tiene esa versión.
+
+### **Consulta de la lista oficial desde Mobile**
+
+```http
+GET /api/blocklists/lotba/current
+GET /api/blocklists/lotba/current?hash=<sha256_local>
+```
+
+El endpoint es de solo lectura y no requiere autenticación: publica únicamente la lista oficial y sus metadatos. La app debe conservar localmente los dominios y su hash. Si la huella enviada coincide con la versión activa, responde HTTP `200` con `actualizada: false` y los metadatos, sin repetir dominios. Si no coincide o no se envía, responde `actualizada: true`, metadatos y el array `dominios`. Los metadatos incluyen `version.id`, `version.fecha`, `version.hash`, `version.cantidadDominios` y `version.reglaCoincidencia`. Si aún no hay versión activa responde `404`; si la versión publicada está incompleta o no disponible responde `503`. La respuesta tiene caché pública de 60 segundos.
+
+Mobile puede sincronizar al iniciar, periódicamente o cuando el usuario solicite actualizar; no debe consultar la API por cada navegación. El bloqueo debe usar la copia local para operar sin conexión. Con `dominio_y_subdominios`, hay que bloquear el host si coincide exactamente con un dominio de la lista o si termina en `.` seguido por ese dominio.
+
 ## 
 
 ## **Decisiones de estructura (Firestore)**
