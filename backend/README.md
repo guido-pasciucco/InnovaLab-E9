@@ -414,3 +414,30 @@ Definir si Backend queda como dueño técnico del catálogo, con el compromiso d
 
 **8- (APROBADO) Campo responsableId en EVENTOS y referencia en ALERTAS** — *Para: Backend*  
 El campo responsableId en EVENTOS quedó marcado como duda en la tabla de entidades. Propuesta: eliminarlo de EVENTOS (se puede derivar consultando el dispositivo cuando haga falta), y en cambio agregar responsablesIds: array\<string\> en ALERTAS, denormalizado al momento de crearla — necesario para poder listar "todas las alertas de un responsable" de forma eficiente, tal como se definió en el objetivo de esa entidad.
+
+**9- (PENDIENTE) Ingesta de eventos y reglas de generación de alertas** — *Backend + Mobile + Data Analytics + QA*
+Definir el contrato para que Mobile informe actividad del dispositivo y qué eventos deben producir una alerta visible para los responsables. La propuesta separa detección, registro y notificación: Mobile detecta hechos en el dispositivo; Backend autentica, valida y persiste eventos de forma idempotente; Backend aplica reglas acordadas para crear alertas. El cliente no escribe directamente en Firestore ni decide destinatarios o alertas.
+
+**Propuesta inicial de contrato para validar:**
+
+* Mobile envía eventos a `POST /api/devices/{deviceId}/events`, autenticado con el ID token de la sesión anónima del dispositivo.
+* Backend exige que el UID verificado del token coincida con `{deviceId}` y que el dispositivo esté registrado. Los responsables destinatarios se derivan de `dispositivos/{deviceId}.responsablesIds`; nunca se aceptan IDs de responsables confiados en el body.
+* Mobile genera un `eventoId` estable y lo conserva al reintentar, para que Backend pueda usarlo como ID del documento en `dispositivos/{deviceId}/eventos/{eventoId}` y evitar duplicados. Una secuencia por dispositivo puede ayudar a detectar huecos, pero la llegada fuera de orden no debería hacer que el backend descarte eventos válidos.
+* El body incluiría solo el enum y los campos aprobados para ese tipo. `timestampServidor` lo asigna Backend; `timestampDispositivo` se puede conservar como dato informativo no confiable. Backend valida formato, tamaño y campos específicos y rechaza tipos no reconocidos.
+* Si el dispositivo está sin conexión, Mobile conserva temporalmente los eventos y los reintenta al recuperar conectividad. La retención y el orden de reenvío deberán acordarse con QA y Data Analytics.
+
+**Propuesta inicial para separar actividad de alertas:**
+
+* `acceso_bloqueado`: registrar como actividad; no enviar una notificación push por cada sitio bloqueado.
+* `proteccion_desactivada` y `cambio_permiso`: candidatos a generar una alerta para los responsables vinculados, sujeto a que Mobile confirme qué cambios puede detectar de manera fiable.
+* `dispositivo_sin_reporte`: lo genera Backend mediante una tarea programada a partir de heartbeats ausentes; no lo declara el propio dispositivo.
+* Una alerta registra el evento de origen y sus destinatarios. Crear el documento de alerta no equivale a confirmar que la push se entregó o se mostró. La entrega push, reintentos y estados de lectura son etapas separadas.
+
+**Puntos que deben confirmar los roles antes de cerrar el contrato:**
+
+* **Mobile:** eventos detectables de forma fiable en cada plataforma; datos disponibles para cada evento; soporte de cola offline, identificador estable y secuencia; y mecanismo de autenticación del dispositivo.
+* **Data Analytics:** enum final de `tipoEvento`, campos comunes y específicos, y tratamiento de duplicados, eventos tardíos y huecos de secuencia. No se agregarán tipos al enum existente sin su aprobación.
+* **QA:** límites de tamaño/lote, política de reintentos, tolerancia a eventos fuera de orden y criterios para validar la idempotencia.
+* **Backend + Mobile:** qué eventos generan alerta, si la notificación push está dentro del MVP y cómo cada responsable consulta y marca como leídas sus alertas. El campo `estado` único de una alerta compartida no representa lecturas independientes de varios responsables; la propuesta es acordar estado por destinatario antes de implementar ese contrato.
+
+Una vez aprobado el catálogo y este alcance mínimo, Backend puede implementar primero la ingesta autenticada e idempotente. La generación/consulta/lectura de alertas y el envío push se implementarían después de cerrar sus reglas y contrato con Mobile.
