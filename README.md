@@ -4,7 +4,7 @@ Proyecto de simulación full-stack de **INNOVA LAB** para diseñar e implementar
 
 El producto propone una única aplicación móvil con dos modos —responsable y dispositivo protegido— y un backend que administra identidades, vinculación, perfiles, listas y, en etapas posteriores, actividad y alertas. La aplicación protegida debe aplicar el bloqueo localmente; el backend distribuye la lista oficial y gestiona los datos y flujos compartidos.
 
-> **Estado del repositorio:** el código versionado contiene actualmente el backend. La experiencia y arquitectura móvil se describen en material de diseño, pero el código fuente de React Native no forma parte de este repositorio todavía. La integración real entre Mobile y Backend sigue pendiente.
+> **Estado de las ramas:** Backend y Frontend se desarrollan en ramas separadas (`backend` y `frontend`) y todavía no se integraron mediante merge en `main`. Por eso, al trabajar desde `backend`, la carpeta `frontend/` no aparece en el árbol de archivos de ese checkout. La rama `frontend` contiene el esqueleto de React Native y sus pantallas; la integración real de ambos componentes sigue pendiente.
 
 ## Objetivos del producto
 
@@ -51,9 +51,9 @@ Estos puntos forman parte del alcance proyectado o están en definición; no deb
 
 La arquitectura separa rutas, servicios de negocio, middleware, configuración y manejo de errores bajo `backend/src/`.
 
-### Aplicación móvil prevista
+### Aplicación móvil (`frontend/`, rama `frontend`)
 
-El material de diseño plantea **React Native y TypeScript**, con integración nativa de Android mediante **Kotlin** para las capacidades de protección. La estrategia mencionada incluye una VPN local (`VpnService`) y permisos/servicios del sistema, como Accesibilidad. Estas capacidades —y su equivalencia en iOS— requieren validación técnica por plataforma. El frontend aún no está integrado en el código versionado de este repositorio.
+El esqueleto móvil está desarrollado con **React Native y TypeScript**, e incluye navegación y pantallas para onboarding, modo responsable y modo dispositivo protegido. La integración nativa de Android se plantea mediante **Kotlin** para las capacidades de protección, incluyendo una VPN local (`VpnService`) y permisos/servicios del sistema, como Accesibilidad. Estas capacidades —y su equivalencia en iOS— requieren validación técnica por plataforma. Varias integraciones de autenticación, protección y datos todavía son mocks o están pendientes de conectar al backend.
 
 ## Flujos implementados en el backend
 
@@ -157,6 +157,8 @@ La implementación se ha probado localmente contra Firebase sandbox para autenti
 
 ## Estructura actual
 
+El repositorio se organiza en dos componentes que actualmente viven en ramas distintas:
+
 ```text
 .
 ├── backend/
@@ -168,10 +170,18 @@ La implementación se ha probado localmente contra Firebase sandbox para autenti
 │   │   └── services/    # Lógica de negocio y acceso a Firestore
 │   ├── package.json
 │   └── README.md        # Contratos y reporte detallado de Backend
-└── docs/                # Material de proyecto local, excluido actualmente por .gitignore
+├── frontend/            # Esqueleto React Native + TypeScript (rama frontend)
+│   ├── App.tsx
+│   └── src/
+│       ├── components/
+│       ├── native/
+│       ├── navigation/
+│       ├── screens/
+│       └── storage/
+└── docs/                # Documentación y material local, excluido por .gitignore
 ```
 
-El directorio `docs/` contiene cronogramas, material de diseño y archivos fuente de listas en el entorno local, pero la regla actual de `.gitignore` lo excluye del control de versiones. Por lo tanto, ese material no necesariamente estará disponible para quien clone el repositorio.
+La carpeta `frontend/` está en la rama `frontend`; no se ve al cambiar a la rama `backend` hasta que ambas se integren. El inventario y contenido de las rutas frontend también están descritos en [`docs/frontend.txt`](docs/frontend.txt), aunque actualmente `docs/` está excluida del control de versiones por `.gitignore`. Los cronogramas, material de diseño y archivos fuente de listas que estén en esa carpeta local tampoco estarán disponibles para quien clone una rama que no los incluya.
 
 ## Roles y responsabilidades
 
