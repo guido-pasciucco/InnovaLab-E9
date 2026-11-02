@@ -1,110 +1,45 @@
-# BA Protege+ — Esqueleto Frontend (React Native + TypeScript)
+# BA Protege+ — Frontend/Mobile (React Native + TypeScript + Kotlin) — v8
 
-Este esqueleto define la navegación, los componentes base y la interfaz
-hacia el código nativo de protección, actualizado según las pantallas
-finales entregadas por UX/UI (PDF "BA Protege - Prueba"). No es un
-proyecto ejecutable por sí solo: hay que copiarlo dentro de un proyecto
-React Native ya inicializado.
+Estado al cierre de la **Semana 8** (Sprint 4). Para instalarlo y probarlo, seguí **GUIA_SEMANA_8.md**.
 
-## Cómo usarlo
-
-1. Crear el proyecto base (si todavía no existe):
-   ```bash
-   npx @react-native-community/cli init BAProtege
-   ```
-
-2. Instalar las dependencias de navegación:
-   ```bash
-   npm install @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs
-   npm install react-native-screens react-native-safe-area-context
-   ```
-
-3. Copiar el contenido de este esqueleto (carpeta `src/` y `App.tsx`) dentro
-   del proyecto recién creado, reemplazando el `App.tsx` por defecto.
-
-4. Correr la app:
-   ```bash
-   npx react-native run-android
-   ```
-
-## Flujo navegable (mock, de punta a punta)
+## Estructura
 
 ```
-Welcome ("Continuar como Tutor" / "Vincular Dispositivo protegido")
- ├── Login / SignUp
- │     └── LinkDevice (QR + código numérico de 6 dígitos, expira en 15 min)
- │           └── ConfigureProtectedProfile
- │                 └── ResponsibleTabs
- │                       ├── Familia  (lista de dispositivos, agregar familiar)
- │                       ├── Inicio   (estado de protección, bloqueos recientes)
- │                       └── Bloqueos (historial completo)
- │
- └── LinkDevice (directo, dispositivo protegido)
-       └── ProtectedDeviceStack
-             ├── PermissionsSetup (pantallas puente VPN / Admin / Accesibilidad)
-             ├── ProtectionStatus
-             └── BlockedSitePage (Volver atrás / Solicitar acceso a un adulto)
+App.tsx
+src/
+  api/          Cliente de Backend: Firebase Auth (REST), HTTP, endpoints reales y simulados
+  config/env.ts URL del backend, Web API Key de Firebase y flags de endpoints pendientes
+  components/   Badge de estado, PIN, compuerta de PIN, código de vinculación, filas de eventos, formularios
+  data/         Lista de respaldo (demo)
+  hooks/        useProtection, useCriticalAction, useDeviceHistory, useAsyncData
+  native/       Contrato del módulo nativo + mock + selector automático
+  navigation/   Root (con deep links), Onboarding, pestañas del Tutor, stack del dispositivo protegido
+  screens/      onboarding/, protected/, responsible/
+  services/     Sincronización de listas y del dispositivo, catálogo de eventos
+  state/        AppModeContext (modo de la app y permisos, persistido)
+  storage/      AsyncStorage
+  utils/        Fechas y dominios
+android-native/ Código Kotlin + manifest y strings completos para copiar a android/
 ```
 
-## Qué es real y qué es mock
+## Qué es real y qué es simulado
 
 | Parte | Estado |
 |---|---|
-| Navegación (stacks + tabs, flujo completo) | Funcional |
-| Pantallas de Welcome, Login, SignUp, LinkDevice, ConfigureProtectedProfile | Funcionales, con el copy y campos del diseño final |
-| Tabs Familia / Inicio / Bloqueos | Funcionales, con datos simulados tomados del diseño (BetMaster, Apuestas Sonic, etc.) |
-| `ProtectionModule` | Solo interfaz + mock. La implementación en Kotlin corresponde a los experimentos E1-E8 y los sprints de desarrollo. |
-| Vinculación QR/código | Placeholder visual, pero con el formato real confirmado contra el repo de Backend: código numérico de 6 dígitos, expira a los 15 min, con botón para regenerarlo. Falta el POST real que cree el documento en `codigosVinculacion`. |
-| PIN del responsable | Conectado: `DeviceDetailScreen` exige el PIN (vía `PinInput`) para desvincular un dispositivo, verificado contra un mock (`PinVerification.mock.ts`) que simula el `pinHash` real de Backend. Falta la llamada real al endpoint de verificación. |
-| Login social (Google/Facebook/X) | Botones conectados a un mock; falta integración real con Firebase Auth. |
-| Persistencia del modo elegido | En memoria (`appModeStorage.ts`). Reemplazar por AsyncStorage o MMKV antes de integrar. |
+| Registro y login del Tutor (Firebase Auth email/contraseña) + perfil `POST /api/responsible-profile` | **Real** (con Web API Key) |
+| Código de vinculación `POST /api/link-codes` (6 caracteres alfanuméricos, 15 min) | **Real** |
+| Canje desde el celular protegido (sesión anónima + `POST /api/link-codes/redeem`) | **Real** |
+| Perfil protegido `POST /api/devices/:id/protected-profile` | **Real** |
+| Lista LOTBA `GET /api/blocklists/lotba/current?hash=` | **Real**, con copia local para funcionar sin conexión |
+| Filtro DNS, notificación de bloqueo, historial local, watchdog, anti-bypass, detección de instalaciones, guardián de Ajustes | **Kotlin escrito, sin compilar ni probar en dispositivo** |
+| Envío de eventos a Backend (`POST /api/devices/:id/events`) | Cliente escrito; **endpoint pendiente en Backend** (los eventos quedan en cola) |
+| Lista de dispositivos, actividad, alertas, sitios personalizados, PIN, desvincular | **Simulado**: endpoints pendientes en Backend (`ENDPOINTS_READY` en `src/config/env.ts`) |
+| Login social, recuperar contraseña, QR | No disponible (Backend solo habilitó email/contraseña; QR requiere librería de cámara) |
 
-## Pendientes conocidos (no bloquean el desarrollo de pantallas)
+Sin `FIREBASE_WEB_API_KEY`, toda la app funciona en **modo demo** con datos simulados.
 
-- Definir librería de QR (ej. `react-native-qrcode-svg`) una vez resuelto el
-  formato del token con Backend.
-- Implementar el Native Module `ProtectionModule` en Kotlin.
-- Reemplazar el almacenamiento en memoria por uno persistente real.
-- `LinkDeviceScreen` se reutiliza tanto en el Onboarding como dentro del tab
-  "Familia" (para agregar un nuevo dispositivo). Los tipos de navegación
-  están pensados para el caso de Onboarding; al conectar el caso de
-  "Familia" conviene revisar el tipado de `navigation` en ese archivo.
-- Backend modela que un dispositivo puede tener **varios responsables**
-  (`dispositivos.responsablesIds` es un array). `FamilyScreen` y
-  `DeviceDetailScreen` hoy asumen un solo responsable por dispositivo —
-  falta decidir cómo se muestra eso en la UI (confirmarlo con UX/Backend).
-- No hay todavía ningún endpoint de Express corriendo en el repo de
-  Backend (`guido-pasciucco/InnovaLab-E9`), solo el modelo de datos
-  (`seed.js`). Todo lo marcado como "mock" en la tabla de arriba sigue
-  siéndolo hasta que ese endpoint exista.
+## Historial de versiones
 
-## Changelog
-
-**v3 (tras revisar el repo real de Backend):**
-- `QrCodeDisplay` y `LinkDeviceScreen`: el código de vinculación pasó de
-  un placeholder alfanumérico (`A5B 09Q`) a un código numérico de 6
-  dígitos con expiración de 15 minutos y botón para regenerarlo —
-  coincide con `codigosVinculacion` en el seed real de Backend.
-- Se conectó `PinInput` (antes armado y sin usar) en `DeviceDetailScreen`,
-  para la acción de desvincular un dispositivo, contra un nuevo mock
-  `PinVerification.mock.ts` que simula la verificación contra el
-  `pinHash` real que guarda Backend por responsable.
-- Confirmado: el PIN es independiente del login (campo `pinHash` propio
-  en `responsables`, separado del email).
-
-**v2 (tras recibir las pantallas finales de UX/UI):**
-- Se agregó `WelcomeScreen`, `LoginScreen`, `SignUpScreen` y
-  `ConfigureProtectedProfileScreen`.
-- Se reemplazó `ResponsibleStack` por `ResponsibleTabs` (navegación
-  inferior Familia / Inicio / Bloqueos), cada tab con su propio stack
-  interno.
-- Se agregaron `FamilyScreen` y `BlocksScreen`.
-- Se actualizó `DashboardScreen` con el contenido real del diseño
-  (saludo, estado de protección, bloqueos recientes).
-- Se actualizó `BlockedSitePageScreen` con los botones "Volver atrás" y
-  "Solicitar acceso a un adulto".
-- Se actualizó el formato del código manual de vinculación a `A5B 09Q`.
-
-**v1 (Semana 2, antes de recibir las pantallas finales):**
-- Esqueleto inicial con `OnboardingStack`, `ResponsibleStack`,
-  `ProtectedDeviceStack` genéricos y componentes base.
+- **v8 (Semanas 5-8):** integración con Backend real, eventos con la taxonomía acordada, notificación y pantalla de sitio bloqueado, historial de actividad, watchdog, anti-bypass (DNS privado, VPN externa, admin/accesibilidad desactivados, proceso terminado), "VPN siempre activa", ahorro de batería, detección de instalaciones, guardián de Ajustes por Accesibilidad, sitios personalizados, alta/cambio de PIN, pantallas del Tutor con datos (dashboard, alertas, bloqueos, detalle).
+- **v4 (Semana 4):** activar/desactivar, persistencia, PIN para cambios críticos, primer módulo Kotlin.
+- **v3 (Semana 3):** pantallas finales de UX y alineación con el modelo de datos de Backend.
