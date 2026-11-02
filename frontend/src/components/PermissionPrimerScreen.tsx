@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { PrimaryButton } from './FormField';
 
 interface Props {
   title: string;
@@ -21,7 +22,7 @@ export function PermissionPrimerScreen({ title, explanation, confirmLabel, onCon
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.explanation}>{explanation}</Text>
-      <Button title={confirmLabel} onPress={onConfirm} />
+      <PrimaryButton title={confirmLabel} onPress={onConfirm} />
     </View>
   );
 }

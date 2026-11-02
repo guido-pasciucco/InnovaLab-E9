@@ -1,49 +1,45 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '../../navigation/OnboardingStack';
+import { Logo, PrimaryButton } from '../../components';
+import { colors } from '../../theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
-/**
- * Pantalla de bienvenida (según diseño UX: "Inicio sesión Tutor").
- * Dos caminos: Tutor (adulto responsable) o vincular directamente
- * un dispositivo protegido (si ya existe una cuenta Tutor creada).
- */
+/** Bienvenida (Figma "Inicio sesión Tutor"): logo, propósito y los dos caminos. */
 export function WelcomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.brand}>BA+ Protege</Text>
-      <Text style={styles.tagline}>
-        Aplicación de protección a menores para sitios de apuestas ilegales
-      </Text>
+      <View style={styles.top}>
+        <Logo size={110} />
+        <Text style={styles.tagline}>Aplicación de protección a menores para sitios de apuestas ilegales</Text>
+      </View>
 
-      <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={() => navigation.navigate('Login')}
-      >
-        <Text style={styles.primaryButtonText}>Continuar como Tutor</Text>
-      </TouchableOpacity>
+      <View style={styles.actions}>
+        <PrimaryButton title="Continuar como Tutor" onPress={() => navigation.navigate('Login')} />
+        <PrimaryButton
+          title="Vincular Dispositivo protegido"
+          variant="outline"
+          onPress={() => navigation.navigate('LinkDevice', { role: 'protegido' })}
+        />
+      </View>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => navigation.navigate('LinkDevice', { role: 'protegido' })}
-      >
-        <Text style={styles.secondaryButtonText}>Vincular Dispositivo protegido</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.footer}>Desarrollado por LOTBA</Text>
+      <View style={styles.footer}>
+        <Text style={styles.footerSmall}>Desarrollada por</Text>
+        <Text style={styles.lotba}>LOTBA</Text>
+        <Text style={styles.footerSmall}>Tu mejor jugada</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  brand: { fontSize: 28, fontWeight: '800', color: '#1A4B8C', marginBottom: 12 },
-  tagline: { fontSize: 15, color: '#555555', textAlign: 'center', marginBottom: 40 },
-  primaryButton: { backgroundColor: '#1A4B8C', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, width: '100%', alignItems: 'center', marginBottom: 12 },
-  primaryButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
-  secondaryButton: { borderWidth: 2, borderColor: '#1A4B8C', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, width: '100%', alignItems: 'center' },
-  secondaryButtonText: { color: '#1A4B8C', fontWeight: '700', fontSize: 15 },
-  footer: { position: 'absolute', bottom: 24, color: '#999999', fontSize: 12 },
+  container: { flex: 1, padding: 28, justifyContent: 'space-between', backgroundColor: colors.background },
+  top: { alignItems: 'center', marginTop: 70 },
+  tagline: { fontSize: 18, color: colors.text, textAlign: 'center', marginTop: 48, lineHeight: 25, paddingHorizontal: 12 },
+  actions: { gap: 6 },
+  footer: { alignItems: 'center', marginBottom: 8 },
+  footerSmall: { fontSize: 13, color: colors.text },
+  lotba: { fontSize: 28, letterSpacing: 6, color: colors.text, fontWeight: '300' },
 });

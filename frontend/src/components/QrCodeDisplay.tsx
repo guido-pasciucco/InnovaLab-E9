@@ -2,18 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 interface Props {
-  /** Token o payload a codificar en el QR (lo sigue resolviendo Backend). */
-  value: string;
-  /**
-   * Código numérico de 6 dígitos, tal como lo genera Backend
-   * (colección `codigosVinculacion`: campo `codigo`, ej. "483920").
-   */
-  numericFallbackCode: string;
-  /** Minutos de validez del código. Backend usa 15 min (`creadoEn` / `expiraEn`). */
-  expiresInMinutes?: number;
-  /** Se llama cuando el código expira, para que la pantalla pida uno nuevo. */
+  /** Código de 6 caracteres alfanuméricos tal como lo devuelve Backend (ej. "G2TD8K"). */
+  code: string;
+  /** Vencimiento ISO (`expiraEn` de POST /api/link-codes; Backend usa 15 min). */
+  expiresAt: string;
   onExpire?: () => void;
-  /** Se llama cuando el usuario toca "Generar nuevo código" tras expirar. */
   onRequestNewCode?: () => void;
 }
 
@@ -23,61 +16,43 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+const secondsUntil = (iso: string) => Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 1000));
+
 /**
- * Vinculación por código de 6 dígitos con expiración, según el modelo real
- * de Backend (`codigosVinculacion`: codigo, creadoEn, expiraEn, usado).
- * El QR es un alias visual del mismo código; no es un token distinto.
+ * Muestra el código de vinculación con su cuenta regresiva.
  *
- * Pendiente: librería final de QR (ej. react-native-qrcode-svg) — por ahora
- * el QR es un placeholder visual.
+ * Backend confirmó que el QR contiene exactamente este mismo código, así que el
+ * ingreso manual alcanza para el MVP. El QR (dibujarlo y escanearlo) queda
+ * pendiente porque requiere sumar librerías de cámara/SVG.
  */
-export function QrCodeDisplay({
-  value,
-  numericFallbackCode,
-  expiresInMinutes = 15,
-  onExpire,
-  onRequestNewCode,
-}: Props) {
-  const [secondsLeft, setSecondsLeft] = useState(expiresInMinutes * 60);
+export function QrCodeDisplay({ code, expiresAt, onExpire, onRequestNewCode }: Props) {
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(expiresAt));
 
   useEffect(() => {
-    setSecondsLeft(expiresInMinutes * 60);
-  }, [numericFallbackCode, expiresInMinutes]);
-
-  useEffect(() => {
-    if (secondsLeft <= 0) {
-      onExpire?.();
-      return;
-    }
+    setSecondsLeft(secondsUntil(expiresAt));
     const interval = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
+      const left = secondsUntil(expiresAt);
+      setSecondsLeft(left);
+      if (left <= 0) {
+        clearInterval(interval);
+        onExpire?.();
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [secondsLeft, onExpire]);
+  }, [expiresAt, onExpire]);
 
   const isExpired = secondsLeft <= 0;
   const isAboutToExpire = !isExpired && secondsLeft <= 60;
 
   return (
     <View style={styles.container}>
-      <View style={[styles.qrPlaceholder, isExpired && styles.qrPlaceholderExpired]}>
-        <Text style={styles.qrPlaceholderText}>
-          {isExpired ? 'Código vencido' : `QR: ${value}`}
-        </Text>
-      </View>
-
-      <Text style={styles.fallbackLabel}>
-        O ingresa manualmente el siguiente código único de vinculación:
-      </Text>
-
-      <Text style={[styles.fallbackCode, isExpired && styles.fallbackCodeExpired]}>
-        {isExpired ? '— — — — — —' : numericFallbackCode}
+      <Text style={styles.label}>Ingresá este código en el celular a proteger:</Text>
+      <Text style={[styles.code, isExpired && styles.codeExpired]}>
+        {isExpired ? '— — — — — —' : `${code.slice(0, 3)} ${code.slice(3)}`}
       </Text>
 
       {!isExpired ? (
-        <Text style={[styles.timer, isAboutToExpire && styles.timerWarning]}>
-          Expira en {formatTime(secondsLeft)}
-        </Text>
+        <Text style={[styles.timer, isAboutToExpire && styles.timerWarning]}>Vence en {formatTime(secondsLeft)}</Text>
       ) : (
         <TouchableOpacity style={styles.newCodeButton} onPress={onRequestNewCode}>
           <Text style={styles.newCodeButtonText}>Generar nuevo código</Text>
@@ -88,61 +63,12 @@ export function QrCodeDisplay({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    padding: 24,
-  },
-  qrPlaceholder: {
-    width: 220,
-    height: 220,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  qrPlaceholderExpired: {
-    backgroundColor: '#FCEAEA',
-    borderColor: '#D32F2F',
-  },
-  qrPlaceholderText: {
-    color: '#777777',
-    fontSize: 12,
-  },
-  fallbackLabel: {
-    fontSize: 14,
-    color: '#555555',
-    textAlign: 'center',
-  },
-  fallbackCode: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 4,
-    marginTop: 8,
-  },
-  fallbackCodeExpired: {
-    color: '#BBBBBB',
-  },
-  timer: {
-    fontSize: 13,
-    color: '#888888',
-    marginTop: 12,
-  },
-  timerWarning: {
-    color: '#F57C00',
-    fontWeight: '700',
-  },
-  newCodeButton: {
-    marginTop: 12,
-    backgroundColor: '#1A4B8C',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  newCodeButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  container: { alignItems: 'center', padding: 24, backgroundColor: '#FFFFFF', borderRadius: 14, alignSelf: 'stretch', marginVertical: 16 },
+  label: { fontSize: 14, color: '#555555', textAlign: 'center' },
+  code: { fontSize: 36, fontWeight: '800', letterSpacing: 6, marginTop: 12, color: '#7C3AED' },
+  codeExpired: { color: '#BBBBBB' },
+  timer: { fontSize: 13, color: '#888888', marginTop: 12 },
+  timerWarning: { color: '#F57C00', fontWeight: '700' },
+  newCodeButton: { marginTop: 12, backgroundColor: '#7C3AED', borderRadius: 999, paddingVertical: 12, paddingHorizontal: 24 },
+  newCodeButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

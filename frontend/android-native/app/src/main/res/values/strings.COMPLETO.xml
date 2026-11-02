@@ -1,0 +1,5 @@
+<!-- Reemplazá android/app/src/main/res/values/strings.xml por este. -->
+<resources>
+    <string name="app_name">BA Protege+</string>
+    <string name="accessibility_service_description">BA Protege+ usa la Accesibilidad para impedir que se desinstale o se desactive la protección sin el PIN del adulto responsable. No lee tus mensajes, contraseñas ni lo que escribís.</string>
+</resources>

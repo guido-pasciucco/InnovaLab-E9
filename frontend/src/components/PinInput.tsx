@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     letterSpacing: 12,
     textAlign: 'center',
     borderBottomWidth: 2,
-    borderBottomColor: '#1A4B8C',
+    borderBottomColor: '#7C3AED',
     width: 160,
     paddingVertical: 8,
   },

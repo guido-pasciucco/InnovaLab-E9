@@ -1,0 +1,106 @@
+<!--
+  AndroidManifest.xml COMPLETO de referencia (Semana 8).
+  Reemplazá el tuyo (android/app/src/main/AndroidManifest.xml) por este.
+  Está basado en la plantilla de React Native: si tu <activity> o <application>
+  tienen atributos distintos, conservá los tuyos y agregá solo lo marcado NUEVO.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- NUEVO (Semana 4): servicio de protección en primer plano y arranque automático -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- NUEVO (Semana 6): pedir que no la cierre el ahorro de batería -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- NUEVO (Semana 8): ver qué apps se instalan, para detectar VPNs / apps de apuestas.
+         Google Play restringe este permiso: para publicar hay que justificarlo (control parental). -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <application
+      android:name=".MainApplication"
+      android:label="@string/app_name"
+      android:icon="@mipmap/ic_launcher"
+      android:roundIcon="@mipmap/ic_launcher_round"
+      android:allowBackup="false"
+      android:theme="@style/AppTheme"
+      android:usesCleartextTraffic="${usesCleartextTraffic}"
+      android:supportsRtl="true">
+
+      <activity
+        android:name=".MainActivity"
+        android:label="@string/app_name"
+        android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+        android:launchMode="singleTask"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+        <!-- NUEVO (Semana 5): la notificación "Sitio bloqueado" abre baprotege://blocked/<dominio> -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="baprotege" />
+        </intent-filter>
+      </activity>
+
+      <!-- Semana 4: filtro DNS por VPN local -->
+      <service
+          android:name=".protection.BlockerVpnService"
+          android:permission="android.permission.BIND_VPN_SERVICE"
+          android:foregroundServiceType="systemExempted"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="android.net.VpnService" />
+          </intent-filter>
+          <!-- NUEVO (Semana 6): permite elegirla como "VPN siempre activa" -->
+          <meta-data android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON" android:value="true" />
+      </service>
+
+      <!-- Semana 4: reactivar al prender el celular -->
+      <receiver android:name=".protection.BootReceiver" android:exported="true">
+          <intent-filter>
+              <action android:name="android.intent.action.BOOT_COMPLETED" />
+              <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+          </intent-filter>
+      </receiver>
+
+      <!-- Semana 4: administrador del dispositivo -->
+      <receiver
+          android:name=".protection.BaDeviceAdminReceiver"
+          android:permission="android.permission.BIND_DEVICE_ADMIN"
+          android:exported="true">
+          <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin" />
+          <intent-filter>
+              <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+          </intent-filter>
+      </receiver>
+
+      <!-- NUEVO (Semana 6): watchdog periódico -->
+      <service
+          android:name=".protection.ProtectionWatchdog"
+          android:permission="android.permission.BIND_JOB_SERVICE"
+          android:exported="false" />
+
+      <!-- NUEVO (Semana 8): guardián de Ajustes (Accesibilidad) -->
+      <service
+          android:name=".protection.ProtectionAccessibilityService"
+          android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+          android:label="@string/app_name"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="android.accessibilityservice.AccessibilityService" />
+          </intent-filter>
+          <meta-data
+              android:name="android.accessibilityservice"
+              android:resource="@xml/accessibility_service_config" />
+      </service>
+    </application>
+</manifest>

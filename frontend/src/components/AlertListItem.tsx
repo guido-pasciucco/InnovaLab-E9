@@ -9,7 +9,7 @@ export interface AlertData {
 }
 
 const SEVERITY_COLOR: Record<AlertData['severity'], string> = {
-  info: '#1A4B8C',
+  info: '#7C3AED',
   warning: '#F57C00',
   critical: '#D32F2F',
 };
