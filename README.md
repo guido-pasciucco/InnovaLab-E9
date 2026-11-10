@@ -1,95 +1,92 @@
 # BA Protege+
 
-Proyecto de simulación full-stack de **INNOVA LAB** para diseñar e implementar una aplicación de control parental enfocada en prevenir el acceso de menores a sitios de apuestas online no autorizados por LOTBA.
+BA Protege+ es un proyecto de simulación full-stack de INNOVA LAB para diseñar una aplicación de control parental enfocada en prevenir el acceso de menores a sitios de apuestas online no autorizados por LOTBA.
 
-El producto propone una única aplicación móvil con dos modos —responsable y dispositivo protegido— y un backend que administra identidades, vinculación, perfiles, listas y, en etapas posteriores, actividad y alertas. La aplicación protegida debe aplicar el bloqueo localmente; el backend distribuye la lista oficial y gestiona los datos y flujos compartidos.
+El repositorio integra en `main` el código de Backend y Mobile/Frontend. La app contempla dos modos de uso: responsable y dispositivo protegido. Mobile realiza la detección y aplicación local de la protección; Backend autentica y autoriza solicitudes, administra vínculos y perfiles, recibe eventos y distribuye la lista oficial.
 
-> **Estado de las ramas:** Backend y Frontend se desarrollan en ramas separadas (`backend` y `frontend`) y todavía no se integraron mediante merge en `main`. Por eso, al trabajar desde `backend`, la carpeta `frontend/` no aparece en el árbol de archivos de ese checkout. La rama `frontend` contiene el esqueleto de React Native y sus pantallas; la integración real de ambos componentes sigue pendiente.
+> **Estado del proyecto:** los flujos principales de cuenta y vinculación, la sincronización de LOTBA y las API para dispositivos y eventos están implementados. Sin embargo, la app todavía usa mocks para dispositivos, actividad y eventos porque los flags correspondientes siguen desactivados. La integración Android nativa aún requiere compilación y pruebas en dispositivos. Alertas y otros servicios aún no están implementados en Backend.
 
-## Objetivos del producto
+## Objetivos y alcance
 
-- Permitir que un adulto responsable registre una cuenta y vincule uno o más dispositivos protegidos.
-- Facilitar una configuración parental guiada y clara para las familias.
-- Sincronizar la lista oficial de dominios de LOTBA sin permitir que el responsable la modifique.
-- Permitir, en el alcance previsto, listas personalizadas adicionales.
-- Hacer que el dispositivo protegido evalúe los dominios localmente y pueda seguir aplicando la última lista sincronizada sin conexión.
-- Consultar el estado y la actividad de los dispositivos, y recibir alertas ante eventos relevantes.
-- Respetar los límites y permisos de cada plataforma móvil; las capacidades de protección y control de instalación deben validarse por plataforma.
+- Registrar responsables y vincular dispositivos protegidos.
+- Configurar perfiles y protección con una experiencia clara para las familias.
+- Distribuir versiones de la lista oficial de LOTBA.
+- Aplicar el bloqueo localmente en el dispositivo y mantener la última lista sincronizada para uso sin conexión.
+- Recibir eventos de los dispositivos y permitir consultar su estado y actividad.
+- Definir e implementar alertas en una etapa posterior, junto con Mobile, Data Analytics y QA.
 
-## Alcance funcional
+### Regla de bloqueo LOTBA
 
-### Modos de uso
+Las versiones de la lista oficial son inmutables. La regla acordada para el prototipo es bloquear el dominio listado y todos sus subdominios. Mobile puede aplicar la lista localmente; no se consulta al Backend en cada navegación. La carga, sincronización y comparación efectiva deben validarse en Android.
 
-- **Modo Responsable:** registro e inicio de sesión, vinculación de dispositivos, configuración de protección, consulta de estado y futura consulta de actividad y alertas.
-- **Modo Dispositivo Protegido:** sesión anónima del dispositivo, canje del código, sincronización de listas y ejecución local de la protección.
+### Fuera del alcance implementado
 
-### Regla actual para la lista oficial
-
-La lista LOTBA se importa como versiones inmutables. La regla acordada para el prototipo es bloquear el dominio listado y todos sus subdominios. La app compara el host exacto o el sufijo `.` + dominio, evitando falsos positivos como `noejemplo.com` al consultar `ejemplo.com`.
-
-La app debe sincronizar la lista cuando corresponda y conservar una copia local; **no debería consultar al backend en cada navegación**. La detección y el bloqueo en tiempo real corresponden a Mobile.
-
-### Fuera del alcance implementado actualmente
-
-- Lista personalizada operativa desde la aplicación.
-- Reglas de alertas, consulta/marcado de lectura y envío push. La ingesta y consulta básica de eventos sí están implementadas en Backend; su integración y visualización desde Mobile siguen pendientes.
-- Generación, consulta, lectura y envío push de alertas.
+- Alertas, consulta y marcado de lectura, y notificaciones push.
+- CRUD de listas personalizadas en Backend.
+- Gestión y verificación de PIN en Backend.
+- Desvinculación mediante API.
 - Restricción efectiva de instalación de aplicaciones.
 - Despliegue de producción, observabilidad y endurecimiento operativo.
 
-Estos puntos forman parte del alcance proyectado o están en definición; no deben interpretarse como funciones ya disponibles.
-
 ## Tecnologías y arquitectura
 
-### Backend disponible en este repositorio
+### Backend
 
-- **Node.js** con módulos CommonJS.
-- **Express 5** para la API HTTP.
-- **Firebase Admin SDK** para verificar Firebase ID tokens y acceder a Firestore.
-- **Cloud Firestore** como almacenamiento documental.
-- **Firebase Authentication** como proveedor de identidad: email/contraseña para responsables y autenticación anónima para el dispositivo protegido.
+- Node.js y CommonJS.
+- Express 5 para la API HTTP.
+- Firebase Admin SDK para verificar Firebase ID tokens y acceder a Firestore.
+- Firebase Authentication para identidades de responsables (email/contraseña) y dispositivos (autenticación anónima).
+- Cloud Firestore como almacenamiento documental.
 
-La arquitectura separa rutas, servicios de negocio, middleware, configuración y manejo de errores bajo `backend/src/`.
+La implementación está en `backend/src/`, organizada en rutas, servicios, middleware, configuración y manejo de errores.
 
-### Aplicación móvil (`frontend/`, rama `frontend`)
+### Mobile / Frontend
 
-El esqueleto móvil está desarrollado con **React Native y TypeScript**, e incluye navegación y pantallas para onboarding, modo responsable y modo dispositivo protegido. La integración nativa de Android se plantea mediante **Kotlin** para las capacidades de protección, incluyendo una VPN local (`VpnService`) y permisos/servicios del sistema, como Accesibilidad. Estas capacidades —y su equivalencia en iOS— requieren validación técnica por plataforma. Varias integraciones de autenticación, protección y datos todavía son mocks o están pendientes de conectar al backend.
+- React Native y TypeScript para las pantallas, navegación, estado y llamadas HTTP.
+- Kotlin para el módulo Android nativo que contiene código de protección, VPN local (`VpnService`), registro de eventos y servicios del sistema.
 
-## Flujos implementados en el backend
+El repositorio contiene el código fuente de la app y archivos nativos de referencia en `frontend/android-native/`, pero no incluye un proyecto Android anfitrión ni un `package.json` de React Native dentro de `frontend/`. Por lo tanto, el contenido móvil versionado no constituye por sí solo un paquete listo para compilar. La guía de Frontend indica que el código Kotlin todavía requiere integración, compilación y pruebas en un entorno Android.
 
-| Flujo | Ruta | Identidad requerida | Estado |
-|---|---|---|---|
-| Crear perfil del responsable | `POST /api/responsible-profile` | Responsable autenticado con email/contraseña | Implementado; probado en sandbox |
-| Generar código de vinculación | `POST /api/link-codes` | Responsable autenticado con perfil existente | Implementado; probado en sandbox |
-| Canjear código y registrar dispositivo | `POST /api/link-codes/redeem` | Sesión anónima del dispositivo protegido | Implementado; probado en sandbox |
-| Crear perfil protegido | `POST /api/devices/{deviceId}/protected-profile` | Responsable autenticado y vinculado al dispositivo | Implementado; pruebas reportadas exitosas |
-| Listar dispositivos vinculados | `GET /api/devices` | Responsable autenticado | Implementado; pendiente de integración desde Mobile |
-| Consultar actividad | `GET /api/devices/{deviceId}/events` | Responsable vinculado | Implementado; pendiente de prueba integrada |
-| Registrar evento | `POST /api/devices/{deviceId}/events` | Sesión anónima del mismo dispositivo | Implementado; pendiente de prueba integrada y validación final de analítica |
-| Consultar lista oficial vigente | `GET /api/blocklists/lotba/current` | Pública, solo lectura | Implementado; verificar la versión activa del sandbox |
-| Comprobar estado de la API | `GET /health` | No requiere autenticación | Implementado |
+## Estado de los flujos
 
-Las solicitudes a endpoints protegidos incluyen el Firebase ID token en el encabezado HTTP de autorización. Backend verifica la identidad y el proveedor de autenticación; no debe confiar en un UID enviado por el cliente para identificar al responsable o al dispositivo.
+| Flujo | Endpoint | Estado |
+|---|---|---|
+| Crear perfil de responsable | `POST /api/responsible-profile` | Implementado; probado en sandbox |
+| Generar código de vinculación | `POST /api/link-codes` | Implementado; probado en sandbox |
+| Canjear código y registrar dispositivo | `POST /api/link-codes/redeem` | Implementado; probado en sandbox |
+| Crear perfil protegido | `POST /api/devices/{deviceId}/protected-profile` | Implementado; pruebas reportadas en sandbox |
+| Listar dispositivos del responsable | `GET /api/devices` | Implementado; falta integración/prueba E2E desde Mobile |
+| Consultar actividad del dispositivo | `GET /api/devices/{deviceId}/events?limit=50` | Implementado; falta prueba integrada contra Firestore |
+| Ingerir evento del dispositivo | `POST /api/devices/{deviceId}/events` | Implementado; falta prueba E2E con Mobile y validación de la taxonomía |
+| Consultar versión LOTBA vigente | `GET /api/blocklists/lotba/current` | Implementado; verificar el puntero de versión en el sandbox |
+| Estado de la API | `GET /health` | Implementado; no comprueba conectividad con Firebase |
+| Alertas, listas personalizadas, PIN y desvinculación | — | No implementados en Backend |
 
-El canje crea el documento técnico del dispositivo y lo asocia al responsable. **No crea automáticamente el perfil personal protegido**: ese paso se realiza después con la sesión autenticada del responsable.
+Las rutas protegidas requieren un Firebase ID token en el encabezado `Authorization`. Backend comprueba el proveedor y la identidad autenticada; no confía en un UID enviado en el cuerpo de la solicitud. El canje de un código crea y vincula el dispositivo, pero el perfil protegido se crea en una solicitud posterior.
 
-## Sincronización de la lista LOTBA
+La ingesta de eventos acepta un evento por solicitud, valida sus campos y usa `eventoId` como identificador de documento para permitir reintentos idempotentes. Backend registra `timestampServidor` y actualiza `ultimoReporte`; el estado es un reporte del cliente y no una comprobación independiente de la protección real.
+
+### Estado de integración Mobile
+
+En `frontend/src/config/env.ts`, `FIREBASE_WEB_API_KEY` está vacía y los flags `listDevices`, `deviceEvents` e `ingestEvents` están en `false`. Por eso la app usa datos simulados para esos flujos, aunque sus endpoints ya existen en Backend. Los flags para alertas, listas personalizadas, PIN y desvinculación también están desactivados y esas API todavía no existen en Backend.
+
+Los flujos de registro, login, vinculación, perfil protegido y descarga LOTBA tienen llamadas al Backend en el cliente, pero requieren configurar la URL y la Web API Key del proyecto Firebase de pruebas para usarlos. La clave de Firebase Admin no debe incluirse en Mobile.
+
+## Lista oficial LOTBA
 
 El importador `backend/scripts/import-lotba-list.js`:
 
-1. Acepta un CSV de una columna `LINK`.
-2. Normaliza URLs y dominios a hosts en minúsculas, quita `www.` y rutas, y deduplica.
-3. Conserva la última fila de origen como referencia cuando hay dominios repetidos.
-4. Por defecto muestra una vista previa; solo escribe si se indica `--apply`.
-5. Crea una versión en `listaVersion/{versionId}/dominios/{dominioId}` y actualiza `configuracion/listas.lotbaVersionId` al final, una vez completa y verificada.
+1. Acepta un CSV con una columna `LINK`.
+2. Normaliza URLs y dominios, quita `www.` y rutas, y deduplica las entradas.
+3. Conserva la última fila de origen si un dominio aparece más de una vez.
+4. Muestra una vista previa por defecto y solo escribe con `--apply`.
+5. Crea una versión en `listaVersion/{versionId}/dominios/{dominioId}` y actualiza `configuracion/listas.lotbaVersionId` después de completar la carga.
 
-El endpoint `GET /api/blocklists/lotba/current` devuelve la versión, fecha, hash, cantidad de dominios y regla de coincidencia. Si el cliente envía su hash local —`?hash=<sha256>`— y coincide con la versión vigente, la respuesta indica `actualizada: false` sin volver a enviar los dominios. Si difiere o no se envía, incluye `dominios`.
+El endpoint `GET /api/blocklists/lotba/current` devuelve la versión, fecha, hash, cantidad de dominios y regla de coincidencia. Si el cliente envía `?hash=<sha256>` y coincide con la versión vigente, la respuesta indica que no hace falta volver a descargar los dominios. Cada CSV se interpreta como una lista completa, no como un conjunto incremental de cambios.
 
-El importador asume que cada CSV es una lista completa acumulada. Una nueva importación publica una nueva fotografía; no implementa una carga incremental por diferencias.
+## Inicio del Backend
 
-## Inicio rápido del backend
-
-Requisitos: Node.js instalado y acceso a un proyecto Firebase de **sandbox** para las operaciones que usan Firebase.
+Requisitos: Node.js y acceso a un proyecto Firebase de sandbox para las rutas que usan Firebase.
 
 Desde la raíz del repositorio:
 
@@ -98,104 +95,95 @@ npm install --prefix backend
 npm start --prefix backend
 ```
 
-En otra terminal, comprobar el servidor local:
+En otra terminal, comprobar que Express responde:
 
 ```powershell
 npm run health --prefix backend
 ```
 
-Por defecto el servidor escucha en `http://localhost:3000`; se puede configurar el puerto con `PORT`. El chequeo de salud solo confirma que Express responde, no comprueba Firebase.
+Por defecto, la API escucha en `http://localhost:3000`. Se puede configurar el puerto con `PORT`. `/health` solo comprueba que la API está activa; no valida Firebase.
 
-### Credenciales locales
+### Credenciales y seguridad
 
-Para inicializar Firebase Admin, coloca el archivo de cuenta de servicio como `backend/serviceAccountKey.json`. El archivo está excluido de Git: no lo subas, no lo compartas y no lo incluyas en capturas o logs.
+Para Firebase Admin, coloca la cuenta de servicio en `backend/serviceAccountKey.json`. El archivo está excluido de Git: no lo subas, compartas ni incluyas en capturas o logs. Usa únicamente cuentas y datos de prueba; las escrituras contra el sandbox modifican datos reales de ese proyecto.
 
-El cliente de pruebas `backend/scripts/auth-smoke-test.js` carga variables desde `backend/.env`, incluyendo la Web API Key de Firebase y credenciales de cuentas de prueba. Ese archivo también está excluido de Git. Configura los nombres de variables requeridos en el script; no uses cuentas ni datos personales reales.
+El script `backend/scripts/auth-smoke-test.js` carga variables de prueba desde `backend/.env`, que también está excluido de Git. No uses cuentas ni datos personales reales. La Web API Key se usa en los clientes de Firebase Auth; no reemplaza la credencial privilegiada de Firebase Admin.
 
-Nunca envíes contraseñas al backend: Firebase Authentication las gestiona. La Web API Key usada por el cliente de prueba no reemplaza ni debe confundirse con las credenciales privilegiadas de Firebase Admin.
+## Importar y consultar LOTBA
 
-## Importar una lista LOTBA
-
-La vista previa no escribe en Firestore:
+Validar el CSV sin escribir en Firestore:
 
 ```powershell
 npm run import:lotba --prefix backend
 ```
 
-Para importar y publicar una versión en el sandbox:
+Importar y publicar una versión en el sandbox:
 
 ```powershell
 npm run import:lotba --prefix backend -- --apply --project-id TU_PROJECT_ID
 ```
 
-`TU_PROJECT_ID` debe coincidir con `project_id` del archivo de cuenta de servicio local. Se puede indicar otro CSV con `--file "ruta\al\archivo.csv"`. Corregí las filas inválidas que informe la vista previa antes de publicar.
+El `TU_PROJECT_ID` debe coincidir con `project_id` de la cuenta de servicio local. Para especificar otro CSV, agrega `--file "ruta\al\archivo.csv"`. Revisa y corrige las filas inválidas antes de publicar.
 
-Para probar la lectura una vez que exista el puntero a una versión activa:
+Con el servidor iniciado y una versión vigente configurada:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/blocklists/lotba/current
 Invoke-RestMethod "http://localhost:3000/api/blocklists/lotba/current?hash=HASH_SHA256_LOCAL"
 ```
 
-Las operaciones de importación escriben datos: ejecutarlas solo de forma intencional contra el proyecto sandbox correcto.
-
-## Pruebas y validación
+## Pruebas y estado de validación
 
 - `npm run health --prefix backend`: smoke check HTTP de `/health`.
-- `npm run import:lotba --prefix backend`: validar y previsualizar el CSV sin escrituras.
-- `backend/scripts/auth-smoke-test.js`: cliente manual de pruebas de Firebase Auth, perfiles y vinculación.
-- El script `test` de `backend/package.json` sigue siendo un placeholder; no existe todavía una suite automatizada completa.
+- `npm run import:lotba --prefix backend`: validación y vista previa sin escrituras.
+- `backend/scripts/auth-smoke-test.js`: pruebas manuales de Firebase Auth, perfiles y vinculación.
+- `backend/package.json` todavía tiene un comando `test` de placeholder; no hay una suite automatizada completa.
+- Los flujos de perfil y vinculación se han probado contra Firebase sandbox. Las rutas de dispositivos y eventos requieren prueba integrada contra Firestore y Mobile; no se deben considerar validadas por una prueba de mock local.
+- La compilación y las pruebas de la protección nativa Android siguen pendientes.
 
-La implementación se ha probado localmente contra Firebase sandbox para autenticación, perfil del responsable, creación y canje de códigos, registro del dispositivo y perfil protegido. El endpoint de lista y el publicador de versión se añadieron después; verificar la versión activa consultando la API en el entorno sandbox antes de integrar Mobile.
+## Próximos pasos
 
-## Próximos pasos del proyecto
+1. Configurar Backend y Mobile contra el mismo proyecto Firebase sandbox y completar una prueba E2E con una cuenta responsable y un dispositivo de prueba.
+2. Confirmar el contrato de eventos con Data Analytics y QA; probar ingesta, reintentos, duplicados, autorización y lectura de actividad.
+3. Habilitar en Mobile los flags de dispositivos y eventos cuando el equipo confirme la integración.
+4. Integrar el código nativo en un proyecto Android anfitrión, compilarlo y validar permisos, sincronización y bloqueo en dispositivos/emuladores compatibles.
+5. Acordar reglas, destinatarios, lectura y posible push de alertas.
+6. Definir e implementar los contratos restantes: listas personalizadas, PIN y desvinculación.
+7. Añadir pruebas automatizadas y preparar la demo integrada.
 
-1. Integrar los flujos de registro, vinculación y perfil protegido desde Mobile.
-2. Confirmar con Mobile el almacenamiento local, frecuencia de sincronización y coincidencia por dominio/subdominios; probar el bloqueo real en el dispositivo.
-3. Integrar y probar desde Mobile los endpoints de dispositivos y actividad.
-4. Validar con Data Analytics y QA los campos y el comportamiento de la ingesta de eventos.
-5. Definir qué eventos generan alertas, destinatarios, estado de lectura por responsable y si el envío push forma parte del MVP.
-6. Implementar alertas y listas personalizadas según los contratos que se acuerden.
-7. Evaluar las capacidades de restricción de aplicaciones según plataforma.
-8. Completar pruebas automatizadas, estabilización y preparación de una demo funcional.
-
-## Estructura actual
-
-El repositorio se organiza en dos componentes que actualmente viven en ramas distintas:
+## Estructura del repositorio
 
 ```text
 .
 ├── backend/
-│   ├── scripts/         # Pruebas manuales, health check e importador LOTBA
+│   ├── scripts/         # Smoke tests, health check e importador LOTBA
 │   ├── src/
-│   │   ├── config/      # Configuración de Firebase y listas
+│   │   ├── config/      # Firebase y listas
 │   │   ├── middleware/  # Autenticación y errores HTTP
 │   │   ├── routes/      # Endpoints Express
 │   │   └── services/    # Lógica de negocio y acceso a Firestore
-│   ├── package.json
-│   └── README.md        # Contratos y reporte detallado de Backend
-├── frontend/            # Esqueleto React Native + TypeScript (rama frontend)
+│   └── README.md        # Reporte y contratos detallados de Backend
+├── frontend/
+│   ├── src/             # Aplicación React Native y TypeScript
+│   ├── android-native/  # Código Kotlin y recursos nativos de referencia
 │   ├── App.tsx
-│   └── src/
-│       ├── components/
-│       ├── native/
-│       ├── navigation/
-│       ├── screens/
-│       └── storage/
-└── docs/                # Documentación y material local, excluido por .gitignore
+│   ├── README.md
+│   └── GUIA_SEMANA_8.md
+├── .gitignore
+└── README.md
 ```
 
-La carpeta `frontend/` está en la rama `frontend`; no se ve al cambiar a la rama `backend` hasta que ambas se integren. El inventario y contenido de las rutas frontend también están descritos en [`docs/frontend.txt`](docs/frontend.txt), aunque actualmente `docs/` está excluida del control de versiones por `.gitignore`. Los cronogramas, material de diseño y archivos fuente de listas que estén en esa carpeta local tampoco estarán disponibles para quien clone una rama que no los incluya.
+## Responsabilidades por rol
 
-## Roles y responsabilidades
+- **Backend:** autenticación de solicitudes, autorización, validación, persistencia, contratos de API e importación/publicación de LOTBA.
+- **Mobile/Frontend:** experiencia de usuario, Firebase Auth cliente, sesión del dispositivo, sincronización local y aplicación de la protección disponible en cada plataforma.
+- **Data Analytics:** validar taxonomía y campos de eventos para mantener métricas consistentes.
+- **QA:** acordar criterios y verificar flujos, autorización, reintentos, errores e integración.
+- **UX/UI:** definir pantallas, contenidos y estados visibles para responsables y usuarios protegidos.
 
-- **Backend:** autenticar solicitudes, validar autorización y datos, persistir perfiles y vínculos, publicar versiones LOTBA y servir contratos de API.
-- **Mobile:** experiencia de usuario, Firebase Auth cliente, sesión anónima del dispositivo, almacenamiento/sincronización local de listas y aplicación de la protección que permita cada plataforma.
-- **Data Analytics:** validar la taxonomía de eventos y campos para preservar métricas consistentes.
-- **QA:** acordar y verificar criterios de aceptación, idempotencia, reintentos, errores y estabilidad.
-- **UX/UI:** definir los flujos, contenidos y estados visibles para responsables y usuarios del dispositivo protegido.
-
-## Documentación relacionada
+## Documentación
 
 - [Reporte técnico y contratos de Backend](backend/README.md)
+- [README de Frontend/Mobile](frontend/README.md)
+- [Guía de puesta al día de Frontend](frontend/GUIA_SEMANA_8.md)
 - [Reglas de exclusión y archivos locales](.gitignore)
