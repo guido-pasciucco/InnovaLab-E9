@@ -305,8 +305,39 @@ Para que este recorrido sea completo, queda por definir cómo recibe la app del 
 | Crear perfil de responsable | POST /api/responsible-profile | Responsable autenticado con email/contraseña |
 | Crear código | POST /api/link-codes | Responsable autenticado con email/contraseña y perfil existente |
 | Canjear código | POST /api/link-codes/redeem | Dispositivo autenticado anónimamente |
+| Listar dispositivos vinculados | GET /api/devices | Responsable autenticado con email/contraseña |
+| Consultar actividad de un dispositivo | GET /api/devices/{deviceId}/events | Responsable autenticado y vinculado al dispositivo |
+| Registrar evento de dispositivo | POST /api/devices/{deviceId}/events | Sesión anónima del mismo dispositivo |
 | Crear perfil protegido | POST /api/devices/{deviceId}/protected-profile | Responsable autenticado y vinculado al dispositivo |
 | Verificar autenticación (prueba) | GET /api/test-auth | Responsable o sesión anónima |
+
+### **Contratos de dispositivos y eventos**
+
+`GET /api/devices` devuelve `{ "dispositivos": [...] }` para el responsable autenticado. Cada elemento contiene `id`, `nombre`, `estado`, `plataforma`, `versionApp`, `ultimoReporte`, `fechaVinculacion` y `perfil` (solo nombre, apellido y parentesco del perfil protegido; no expone fecha de nacimiento). El responsable se obtiene del token y la consulta se limita a documentos cuyo `responsablesIds` lo incluye.
+
+`GET /api/devices/{deviceId}/events?limit=50` devuelve `{ "eventos": [...] }`, con los más recientes primero y `limit` entre 1 y 100 (50 por defecto). Solo puede consultarlo un responsable vinculado. Los timestamps se serializan como ISO 8601.
+
+`POST /api/devices/{deviceId}/events` acepta un evento por solicitud, requiere una sesión Firebase anónima y exige que el UID verificado del token coincida con `{deviceId}`. El payload aceptado es:
+
+```json
+{
+  "eventoId": "UUID estable para reintentos",
+  "tipoEvento": "acceso_bloqueado",
+  "resultado": "bloqueado",
+  "timestampDispositivo": "2026-11-03T20:00:00.000Z",
+  "secuencia": 42,
+  "versionApp": "0.8.0",
+  "versionLista": "lotba_d5dee6b9158dea0a1cce",
+  "dominio": "ejemplo.com",
+  "origenLista": "lotba"
+}
+```
+
+Los tipos que puede reportar Mobile son `proteccion_activada`, `proteccion_desactivada`, `acceso_bloqueado`, `intento_instalacion`, `cambio_permiso`, `intento_modificacion_config`, `intento_bypass` y `sync_lista`. Backend valida los campos específicos y rechaza campos no permitidos. `timestampServidor` y `dispositivoId` los asigna Backend; el timestamp del dispositivo es informativo y no confiable.
+
+La escritura del evento y la actualización de `ultimoReporte` son atómicas. La actualización idempotente usa `eventoId` como ID del documento: primera recepción responde `201`; reintento con el mismo ID responde `200` y `duplicado: true`. Una nueva recepción actualiza el reporte, pero no vuelve a aplicar cambios de estado. Los eventos de activación/desactivación, permisos e intentos de evasión actualizan el estado reportado solo si su `secuencia` supera la última secuencia de estado guardada. Ese estado refleja lo que reportó el cliente; el backend no verifica directamente el estado de la VPN o de los permisos del sistema. Un evento fuera de orden se conserva y no se descarta.
+
+La ingesta **no genera alertas ni notificaciones push** todavía. El catálogo y las reglas de alerta siguen sujetos al acuerdo descrito en el punto 9 de esta sección.
 
 ### **Contrato para crear el perfil protegido**
 
@@ -415,16 +446,16 @@ Definir si Backend queda como dueño técnico del catálogo, con el compromiso d
 **8- (APROBADO) Campo responsableId en EVENTOS y referencia en ALERTAS** — *Para: Backend*  
 El campo responsableId en EVENTOS quedó marcado como duda en la tabla de entidades. Propuesta: eliminarlo de EVENTOS (se puede derivar consultando el dispositivo cuando haga falta), y en cambio agregar responsablesIds: array\<string\> en ALERTAS, denormalizado al momento de crearla — necesario para poder listar "todas las alertas de un responsable" de forma eficiente, tal como se definió en el objetivo de esa entidad.
 
-**9- (PENDIENTE) Ingesta de eventos y reglas de generación de alertas** — *Backend + Mobile + Data Analytics + QA*
-Definir el contrato para que Mobile informe actividad del dispositivo y qué eventos deben producir una alerta visible para los responsables. La propuesta separa detección, registro y notificación: Mobile detecta hechos en el dispositivo; Backend autentica, valida y persiste eventos de forma idempotente; Backend aplica reglas acordadas para crear alertas. El cliente no escribe directamente en Firestore ni decide destinatarios o alertas.
+**9- (PARCIAL: INGESTA DE EVENTOS IMPLEMENTADA; REGLAS DE ALERTAS PENDIENTES)** — *Backend + Mobile + Data Analytics + QA*
+Mobile detecta hechos en el dispositivo y Backend autentica, valida y persiste eventos de forma idempotente mediante `POST /api/devices/{deviceId}/events`. El cliente no escribe directamente en Firestore ni decide destinatarios o alertas. Falta acordar qué eventos producen alertas, cómo se consultan y marcan como leídas y si se enviarán notificaciones push.
 
 **Propuesta inicial de contrato para validar:**
 
-* Mobile envía eventos a `POST /api/devices/{deviceId}/events`, autenticado con el ID token de la sesión anónima del dispositivo.
-* Backend exige que el UID verificado del token coincida con `{deviceId}` y que el dispositivo esté registrado. Los responsables destinatarios se derivan de `dispositivos/{deviceId}.responsablesIds`; nunca se aceptan IDs de responsables confiados en el body.
-* Mobile genera un `eventoId` estable y lo conserva al reintentar, para que Backend pueda usarlo como ID del documento en `dispositivos/{deviceId}/eventos/{eventoId}` y evitar duplicados. Una secuencia por dispositivo puede ayudar a detectar huecos, pero la llegada fuera de orden no debería hacer que el backend descarte eventos válidos.
-* El body incluiría solo el enum y los campos aprobados para ese tipo. `timestampServidor` lo asigna Backend; `timestampDispositivo` se puede conservar como dato informativo no confiable. Backend valida formato, tamaño y campos específicos y rechaza tipos no reconocidos.
-* Si el dispositivo está sin conexión, Mobile conserva temporalmente los eventos y los reintenta al recuperar conectividad. La retención y el orden de reenvío deberán acordarse con QA y Data Analytics.
+* Mobile envía eventos de a uno a `POST /api/devices/{deviceId}/events`, autenticado con el ID token de la sesión anónima del dispositivo.
+* Backend exige que el UID verificado del token coincida con `{deviceId}` y que el dispositivo esté registrado. Los responsables nunca se aceptan desde el body.
+* Mobile genera un `eventoId` estable y lo conserva al reintentar. Backend usa ese ID como documento para evitar duplicados. Una secuencia por dispositivo ayuda a ordenar cambios de estado; los eventos fuera de orden se guardan y no se descartan.
+* Backend asigna `timestampServidor` y `dispositivoId`, valida el enum y los campos específicos, y rechaza campos no permitidos. `timestampDispositivo` es informativo y no confiable.
+* Si el dispositivo está sin conexión, Mobile conserva temporalmente los eventos y los reintenta al recuperar conectividad. La retención y los límites de cola deberán acordarse con QA y Data Analytics.
 
 **Propuesta inicial para separar actividad de alertas:**
 
@@ -436,8 +467,8 @@ Definir el contrato para que Mobile informe actividad del dispositivo y qué eve
 **Puntos que deben confirmar los roles antes de cerrar el contrato:**
 
 * **Mobile:** eventos detectables de forma fiable en cada plataforma; datos disponibles para cada evento; soporte de cola offline, identificador estable y secuencia; y mecanismo de autenticación del dispositivo.
-* **Data Analytics:** enum final de `tipoEvento`, campos comunes y específicos, y tratamiento de duplicados, eventos tardíos y huecos de secuencia. No se agregarán tipos al enum existente sin su aprobación.
+* **Data Analytics:** confirmar que el subconjunto de tipos y campos implementado corresponde al enum y a sus métricas; definir campos futuros y tratamiento analítico de duplicados, eventos tardíos y huecos de secuencia. No se agregarán tipos nuevos al enum sin su aprobación.
 * **QA:** límites de tamaño/lote, política de reintentos, tolerancia a eventos fuera de orden y criterios para validar la idempotencia.
 * **Backend + Mobile:** qué eventos generan alerta, si la notificación push está dentro del MVP y cómo cada responsable consulta y marca como leídas sus alertas. El campo `estado` único de una alerta compartida no representa lecturas independientes de varios responsables; la propuesta es acordar estado por destinatario antes de implementar ese contrato.
 
-Una vez aprobado el catálogo y este alcance mínimo, Backend puede implementar primero la ingesta autenticada e idempotente. La generación/consulta/lectura de alertas y el envío push se implementarían después de cerrar sus reglas y contrato con Mobile.
+Backend ya implementó la ingesta autenticada e idempotente y `GET /api/devices` más `GET /api/devices/{deviceId}/events`, que Mobile necesita para ver dispositivos y actividad. Quedan pendientes la prueba integrada de esos endpoints con Mobile, la generación/consulta/lectura de alertas, las reglas de notificación push y la aprobación final de los campos de analítica.

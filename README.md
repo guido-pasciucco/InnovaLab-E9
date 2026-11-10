@@ -32,7 +32,7 @@ La app debe sincronizar la lista cuando corresponda y conservar una copia local;
 ### Fuera del alcance implementado actualmente
 
 - Lista personalizada operativa desde la aplicación.
-- Ingesta, consulta y visualización de eventos/actividad.
+- Reglas de alertas, consulta/marcado de lectura y envío push. La ingesta y consulta básica de eventos sí están implementadas en Backend; su integración y visualización desde Mobile siguen pendientes.
 - Generación, consulta, lectura y envío push de alertas.
 - Restricción efectiva de instalación de aplicaciones.
 - Despliegue de producción, observabilidad y endurecimiento operativo.
@@ -63,6 +63,9 @@ El esqueleto móvil está desarrollado con **React Native y TypeScript**, e incl
 | Generar código de vinculación | `POST /api/link-codes` | Responsable autenticado con perfil existente | Implementado; probado en sandbox |
 | Canjear código y registrar dispositivo | `POST /api/link-codes/redeem` | Sesión anónima del dispositivo protegido | Implementado; probado en sandbox |
 | Crear perfil protegido | `POST /api/devices/{deviceId}/protected-profile` | Responsable autenticado y vinculado al dispositivo | Implementado; pruebas reportadas exitosas |
+| Listar dispositivos vinculados | `GET /api/devices` | Responsable autenticado | Implementado; pendiente de integración desde Mobile |
+| Consultar actividad | `GET /api/devices/{deviceId}/events` | Responsable vinculado | Implementado; pendiente de prueba integrada |
+| Registrar evento | `POST /api/devices/{deviceId}/events` | Sesión anónima del mismo dispositivo | Implementado; pendiente de prueba integrada y validación final de analítica |
 | Consultar lista oficial vigente | `GET /api/blocklists/lotba/current` | Pública, solo lectura | Implementado; verificar la versión activa del sandbox |
 | Comprobar estado de la API | `GET /health` | No requiere autenticación | Implementado |
 
@@ -149,11 +152,12 @@ La implementación se ha probado localmente contra Firebase sandbox para autenti
 
 1. Integrar los flujos de registro, vinculación y perfil protegido desde Mobile.
 2. Confirmar con Mobile el almacenamiento local, frecuencia de sincronización y coincidencia por dominio/subdominios; probar el bloqueo real en el dispositivo.
-3. Acordar con Mobile, Data Analytics y QA el catálogo de eventos, sus campos, reintentos y comportamiento offline.
-4. Implementar la ingesta autenticada e idempotente de eventos tras aprobar el contrato.
+3. Integrar y probar desde Mobile los endpoints de dispositivos y actividad.
+4. Validar con Data Analytics y QA los campos y el comportamiento de la ingesta de eventos.
 5. Definir qué eventos generan alertas, destinatarios, estado de lectura por responsable y si el envío push forma parte del MVP.
-6. Evaluar y priorizar la lista personalizada y las capacidades de restricción de aplicaciones según plataforma.
-7. Completar pruebas automatizadas, estabilización y preparación de una demo funcional.
+6. Implementar alertas y listas personalizadas según los contratos que se acuerden.
+7. Evaluar las capacidades de restricción de aplicaciones según plataforma.
+8. Completar pruebas automatizadas, estabilización y preparación de una demo funcional.
 
 ## Estructura actual
 
