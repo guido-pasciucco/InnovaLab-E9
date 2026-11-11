@@ -125,6 +125,20 @@ class ProtectionModule(private val reactContext: ReactApplicationContext) :
         activity.startActivityForResult(intent, REQ_ADMIN)
     }
 
+    /** Semana 9: al quitar la protección (con PIN), se quita el admin; si no, la app no se puede desinstalar. */
+    @ReactMethod
+    fun removeDeviceAdmin(promise: Promise) {
+        try {
+            if (ProtectionState.isAdminActive(reactContext)) {
+                val dpm = reactContext.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                dpm.removeActiveAdmin(ComponentName(reactContext, BaDeviceAdminReceiver::class.java))
+            }
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("ADMIN_REMOVE_FAILED", e)
+        }
+    }
+
     @ReactMethod
     fun isAccessibilityServiceEnabled(promise: Promise) = promise.resolve(SecurityChecks.accessibilityEnabled(reactContext))
 
@@ -288,7 +302,7 @@ class ProtectionModule(private val reactContext: ReactApplicationContext) :
                 firebaseApiKey = cfg.getString("firebaseApiKey") ?: "",
                 refreshToken = cfg.getString("refreshToken") ?: "",
                 deviceId = cfg.getString("deviceId") ?: "",
-                appVersion = cfg.getString("appVersion") ?: "0.8.0",
+                appVersion = cfg.getString("appVersion") ?: "1.0.0-rc1",
                 uploadEnabled = cfg.hasKey("uploadEnabled") && cfg.getBoolean("uploadEnabled")
             ))
             EventUploader.invalidateToken()
@@ -309,6 +323,26 @@ class ProtectionModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun flushEvents(promise: Promise) {
         EventUploader.flushOn(reactContext) { left -> promise.resolve(left) }
+    }
+
+    // ---- Almacenamiento cifrado para la app JS (semana 10) ------------------------
+
+    @ReactMethod
+    fun secureSet(key: String, value: String, promise: Promise) {
+        try { SecureStore.put(reactContext, "js_$key", value); promise.resolve(null) }
+        catch (e: Exception) { promise.reject("SECURE_STORE_FAILED", e) }
+    }
+
+    @ReactMethod
+    fun secureGet(key: String, promise: Promise) {
+        try { promise.resolve(SecureStore.get(reactContext, "js_$key")) }
+        catch (e: Exception) { promise.reject("SECURE_STORE_FAILED", e) }
+    }
+
+    @ReactMethod
+    fun secureRemove(key: String, promise: Promise) {
+        SecureStore.remove(reactContext, "js_$key")
+        promise.resolve(null)
     }
 
     // Requeridos por NativeEventEmitter (JS usa DeviceEventEmitter).

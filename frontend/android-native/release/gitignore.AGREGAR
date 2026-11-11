@@ -1,0 +1,6 @@
+# Agregar al .gitignore de la raíz del repo: la clave de firma NUNCA va a git.
+*.keystore
+*.jks
+android/app/release/
+*.apk
+*.aab

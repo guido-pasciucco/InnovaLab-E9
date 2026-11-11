@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProtectedDeviceStackParamList } from '../../navigation/ProtectedDeviceStack';
+import { normalizeDomain } from '../../utils/domains';
 
 type Props = NativeStackScreenProps<ProtectedDeviceStackParamList, 'BlockedSitePage'>;
 
@@ -14,7 +15,10 @@ type Props = NativeStackScreenProps<ProtectedDeviceStackParamList, 'BlockedSiteP
  * con el dominio (deep link baprotege://blocked/<dominio>).
  */
 export function BlockedSitePageScreen({ route, navigation }: Props) {
-  const domain = route.params?.domain ?? 'un sitio de apuestas';
+  // Semana 10 (seguridad): cualquier app puede abrir baprotege://blocked/<texto>.
+  // Solo se muestra si es un dominio válido, para que no se pueda usar la pantalla
+  // con mensajes inventados.
+  const domain = normalizeDomain(route.params?.domain ?? '') ?? 'un sitio de apuestas';
   const [askedAdult, setAskedAdult] = useState(false);
 
   const goBack = () => {

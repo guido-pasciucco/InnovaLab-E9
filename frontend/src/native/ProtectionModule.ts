@@ -73,6 +73,11 @@ export interface ProtectionModuleInterface {
   requestVpnPermission(): Promise<boolean>;
   isDeviceAdminActive(): Promise<boolean>;
   requestDeviceAdmin(): Promise<boolean>;
+  /**
+   * Quita el administrador del dispositivo (semana 9). Solo después del PIN, al
+   * "Quitar la protección de este celular": si no, la app no se puede desinstalar.
+   */
+  removeDeviceAdmin(): Promise<void>;
   isAccessibilityServiceEnabled(): Promise<boolean>;
   /** Abre Ajustes > Accesibilidad (no se puede activar por código). */
   openAccessibilitySettings(): void;
@@ -108,4 +113,9 @@ export interface ProtectionModuleInterface {
   clearBackendConfig(): Promise<void>;
   /** Intenta subir ya los eventos pendientes. Devuelve cuántos quedan pendientes. */
   flushEvents(): Promise<number>;
+
+  // --- Almacenamiento cifrado con Android Keystore (semana 10) ---
+  secureSet(key: string, value: string): Promise<void>;
+  secureGet(key: string): Promise<string | null>;
+  secureRemove(key: string): Promise<void>;
 }
