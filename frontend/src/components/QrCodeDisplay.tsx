@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 interface Props {
@@ -27,6 +27,10 @@ const secondsUntil = (iso: string) => Math.max(0, Math.round((new Date(iso).getT
  */
 export function QrCodeDisplay({ code, expiresAt, onExpire, onRequestNewCode }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(expiresAt));
+  // Semana 9: el callback va en una ref; antes, al pasar una función nueva en cada render,
+  // el intervalo se destruía y se volvía a crear cada segundo.
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     setSecondsLeft(secondsUntil(expiresAt));
@@ -35,11 +39,11 @@ export function QrCodeDisplay({ code, expiresAt, onExpire, onRequestNewCode }: P
       setSecondsLeft(left);
       if (left <= 0) {
         clearInterval(interval);
-        onExpire?.();
+        onExpireRef.current?.();
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [expiresAt, onExpire]);
+  }, [expiresAt]);
 
   const isExpired = secondsLeft <= 0;
   const isAboutToExpire = !isExpired && secondsLeft <= 60;

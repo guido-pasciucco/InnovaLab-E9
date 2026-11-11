@@ -7,7 +7,6 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.net.VpnService
-import android.util.Log
 
 /**
  * "Perro guardián" (Semana 6: persistencia frente a cierres). Android lo despierta
@@ -44,10 +43,10 @@ class ProtectionWatchdog : JobService() {
                 if (VpnService.prepare(ctx) == null) {
                     try {
                         BlockerVpnService.start(ctx)
-                        Log.i(TAG, "protección reactivada por el watchdog")
+                        L.i(TAG, "protección reactivada por el watchdog")
                     } catch (e: Exception) {
                         // Android 12+ puede prohibir iniciar servicios en primer plano desde segundo plano.
-                        Log.w(TAG, "no se pudo reactivar: ${e.message}")
+                        L.w(TAG, "no se pudo reactivar: ${e.message}")
                         Notifier.protectionDown(ctx)
                     }
                 } else {
@@ -61,7 +60,7 @@ class ProtectionWatchdog : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         Thread {
-            try { runChecks(applicationContext) } catch (e: Exception) { Log.w(TAG, "chequeo falló", e) }
+            try { runChecks(applicationContext) } catch (e: Exception) { L.w(TAG, "chequeo falló", e) }
             jobFinished(params, false)
         }.start()
         return true

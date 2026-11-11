@@ -4,7 +4,9 @@ import { ProtectionModule } from '../native';
 import { syncBlocklist, syncCustomList } from './blocklistSync';
 
 const MIN_INTERVAL_MS = 6 * 60 * 60 * 1000; // la lista LOTBA no cambia seguido: cada 6 h alcanza
-let lastSync = 0;
+const RETRY_AFTER_FAILURE_MS = 5 * 60 * 1000; // semana 9: si falló, reintentar a los 5 min (no a las 6 h)
+let nextSyncAt = 0;
+let inFlight: Promise<void> | null = null;
 
 /**
  * Le pasa al módulo nativo lo que necesita para mandar eventos a Backend por su
@@ -30,15 +32,31 @@ export async function configureNativeUploader(): Promise<void> {
  * Cada paso es independiente: si uno falla, los demás siguen.
  */
 export async function syncProtectedDevice(force = false): Promise<void> {
-  if (!force && Date.now() - lastSync < MIN_INTERVAL_MS) {
+  if (!force && Date.now() < nextSyncAt) {
     await ProtectionModule.flushEvents().catch(() => {});
     return;
   }
-  lastSync = Date.now();
-  const session = await api.getSession();
-
-  await configureNativeUploader().catch((e) => console.warn('[deviceSync] uploader', e));
-  await syncBlocklist().catch((e) => console.warn('[deviceSync] LOTBA', e));
-  if (session) await syncCustomList(session.uid).catch((e) => console.warn('[deviceSync] personalizada', e));
-  await ProtectionModule.flushEvents().catch(() => {});
+  // Semana 9: si ya hay una sincronización en curso, se espera esa en vez de lanzar otra.
+  if (inFlight) return inFlight;
+  inFlight = (async () => {
+    const session = await api.getSession();
+    let ok = true;
+    await configureNativeUploader().catch((e) => console.warn('[deviceSync] uploader', e));
+    await syncBlocklist().catch((e) => {
+      ok = false;
+      console.warn('[deviceSync] LOTBA', e);
+    });
+    if (session) {
+      await syncCustomList(session.uid).catch((e) => {
+        ok = false;
+        console.warn('[deviceSync] personalizada', e);
+      });
+    }
+    await ProtectionModule.flushEvents().catch(() => {});
+    nextSyncAt = Date.now() + (ok ? MIN_INTERVAL_MS : RETRY_AFTER_FAILURE_MS);
+    if (!ok && force) throw new Error('sync_failed');
+  })().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
 }
