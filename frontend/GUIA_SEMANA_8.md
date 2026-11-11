@@ -3,7 +3,7 @@
 Este paquete cubre lo que el plan pide a Frontend/Mobile en las semanas 5, 6, 7 y 8, y reemplaza la versión de la Semana 4.
 Hacelo en este orden: **A** (JS, modo demo) → **B** (conectar al Backend real) → **C** (Kotlin) → **D** (pruebas) → **E** (subir a git).
 
-> ⚠️ **Estado:** el TypeScript está verificado con `tsc` (cero errores). El código Kotlin (Semana 4 y nuevos) queda pendiente de validar en dispositivo: si Gradle marca errores al compilar, se registran como bug y se corrigen en la iteración siguiente.
+> **Estado (actualizado en la semana 11):** el TypeScript está verificado con `tsc` y el código Kotlin compila y funciona en emulador con el build `1.0.0-rc1` (ver `VALIDACION_RC1_RESULTADOS.md`).
 
 ---
 
@@ -131,7 +131,7 @@ git push origin frontend
 
 ## Limitaciones conocidas
 
-1. **Kotlin pendiente de validar en dispositivo** (ver arriba).
+1. **Kotlin validado en emulador; falta validar en celulares reales** (ver arriba).
 2. **DNS privado estricto / DNS seguro del navegador** saltean el filtro. Ahora se detecta y avisa, y el guardián impide activarlo desde Ajustes, pero no impide que un navegador use su propio DNS seguro.
 3. El **guardián de Ajustes** depende del texto de pantalla: probar en el celular real (Samsung/Xiaomi pueden necesitar más palabras clave). Google Play restringe Accesibilidad y `QUERY_ALL_PACKAGES`: para publicar hay que justificarlos.
 4. **No se pueden impedir instalaciones** sin Device Owner (validado solo como prueba); se detectan y se avisa.
