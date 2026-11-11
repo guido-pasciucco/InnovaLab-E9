@@ -3,7 +3,7 @@
 **Para:** todos los equipos (pedido del plan, semana 9). **Plataforma:** Android, app React Native + módulo nativo Kotlin.
 Documento vivo: cada limitación indica qué hace la app hoy y qué se podría hacer después.
 
-> ⚠️ **Estado:** pendiente de validar en dispositivo real. Lo de abajo se basa en el diseño de la app y en la documentación oficial de Android; QA lo confirma en las pruebas prolongadas.
+> **Estado:** el build `1.0.0-rc1` fue validado en emulador (Android 17 / API 37): filtro, notificaciones, persistencia, PIN y bloqueo de desinstalación funcionan. Falta confirmar en celulares reales (sobre todo Samsung/Xiaomi) y en las pruebas prolongadas de QA.
 
 ## 1. Filtro de sitios (VPN local por DNS)
 

@@ -1,6 +1,6 @@
 # BA Protege+ — Frontend/Mobile (React Native + TypeScript + Kotlin) — v10 (1.0.0-rc1)
 
-Estado a las **Semanas 10-11** (build candidato `1.0.0-rc1`). Documentos: **GUIA_SEMANAS_10_11.md** (cómo generar el APK release), **VALIDACION_DISPOSITIVOS.md** (pruebas por dispositivo), **LIMITACIONES_ANDROID.md**, y las guías de las semanas 8 y 9.
+Estado a las **Semanas 10-11**: build candidato `1.0.0-rc1` generado y validado en emulador (ver **VALIDACION_RC1_RESULTADOS.md**). Documentos: **GUIA_SEMANAS_10_11.md** (cómo generar el APK release), **VALIDACION_DISPOSITIVOS.md** (pruebas por dispositivo), **LIMITACIONES_ANDROID.md**, y las guías de las semanas 8 y 9.
 
 ## Estructura
 
@@ -32,7 +32,7 @@ android-native/ Código Kotlin + manifest y strings completos para copiar a andr
 | Canje desde el celular protegido (sesión anónima + `POST /api/link-codes/redeem`) | **Real** |
 | Perfil protegido `POST /api/devices/:id/protected-profile` | **Real** |
 | Lista LOTBA `GET /api/blocklists/lotba/current?hash=` | **Real**, con copia local para funcionar sin conexión |
-| Filtro DNS, notificación de bloqueo, historial local, watchdog, anti-bypass, detección de instalaciones, guardián de Ajustes | **Implementado en Kotlin; pendiente de validar en dispositivo** |
+| Filtro DNS, notificación de bloqueo, historial local, watchdog, anti-bypass, detección de instalaciones, guardián de Ajustes | **Validado en emulador (Android 17 / API 37) con el build release `1.0.0-rc1`**; pendiente en celulares reales |
 | Envío de eventos `POST /api/devices/:id/events`, lista de dispositivos `GET /api/devices`, actividad `GET /api/devices/:id/events` | **Real** |
 | Alertas | **Armadas en la app a partir de los eventos reales** hasta que Backend publique `GET /api/alerts` |
 | Sitios personalizados, PIN, desvincular | **Simulado**: endpoints pendientes en Backend (`ENDPOINTS_READY` en `src/config/env.ts`) |

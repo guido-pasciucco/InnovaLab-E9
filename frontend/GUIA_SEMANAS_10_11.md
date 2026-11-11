@@ -74,21 +74,26 @@ En `src/config/env.ts`:
 ```powershell
 cd android
 .\gradlew.bat clean
-.\gradlew.bat assembleRelease
+.\gradlew.bat assembleRelease "-PreactNativeArchitectures=arm64-v8a,x86_64"
 ```
+El parámetro compila solo para celulares reales (`arm64-v8a`) y el emulador (`x86_64`), y tarda bastante menos. En PowerShell **va entre comillas**, porque la coma separa argumentos.
+
 El APK queda en `android\app\build\outputs\apk\release\app-release.apk`. No necesita Metro: el código JS va adentro del APK.
 
 ### 3.6 Instalar en un dispositivo
 ```powershell
 adb install -r android\app\build\outputs\apk\release\app-release.apk
 ```
+Si ya había una versión de desarrollo instalada con la protección activa, **no se puede desinstalar** (`DELETE_FAILED_DEVICE_POLICY_MANAGER`): es la protección funcionando. Primero hay que usar "Quitar la protección de este celular" con el PIN y después `adb uninstall com.baprotege`. Hay que desinstalar porque la versión de desarrollo y la release están firmadas con claves distintas.
 También se puede pasar el `.apk` por Drive o WhatsApp e instalarlo en el celular, permitiendo "instalar apps desconocidas".
 
 ### 3.7 Errores comunes al compilar
 | Error | Solución |
 |---|---|
 | `Unresolved reference: BuildConfig` en `L.kt` | Agregar `buildFeatures { buildConfig true }` dentro de `android { }` en `app/build.gradle` |
-| `Could not get unknown property 'BAPROTEGE_STORE_FILE'` | Falta el `gradle.properties` del usuario (paso 3.2) |
+| `Could not get unknown property 'BAPROTEGE_STORE_FILE'` | Falta el `gradle.properties` del usuario (paso 3.2), o quedó vacío. Si se crea con el Bloc de notas, revisar que no se haya guardado como `.txt` |
+| Avisos `Hard link ... failed ... copy instead` | Normales si el proyecto y la caché de Gradle están en discos distintos. No afectan el build |
+| Avisos `ksp-... is too old for kotlin-...` | Vienen de la librería AsyncStorage; son solo advertencias |
 | `Keystore file ... not found` | El `.keystore` tiene que estar en `android\app\` |
 | `Execution failed for task ':app:minifyReleaseWithR8'` | Revisar que se agregaron las reglas de ProGuard (3.3) |
 | Cualquier error de Kotlin | Anotarlo como bug crítico del candidato, con el archivo y la línea |
