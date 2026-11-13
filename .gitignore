@@ -26,3 +26,6 @@ build/
 *.jks
 *.apk
 *.aab
+
+#Material adicional
+docs/

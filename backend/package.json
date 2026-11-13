@@ -2,8 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "seed.js",
+  "main": "src/app.js",
   "scripts": {
+    "start": "node src/server.js",
+    "health": "node scripts/check-health.js",
+    "import:lotba": "node scripts/import-lotba-list.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
