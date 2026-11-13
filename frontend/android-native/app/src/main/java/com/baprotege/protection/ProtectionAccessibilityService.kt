@@ -1,7 +1,6 @@
 package com.baprotege.protection
 
 import android.accessibilityservice.AccessibilityService
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.text.Normalizer
@@ -17,7 +16,7 @@ import java.text.Normalizer
  * Para cambiar algo legítimamente, el adulto primero desactiva la protección con
  * el PIN desde la app: con la protección apagada este guardián no actúa.
  *
- * Limitaciones honestas:
+ * Limitaciones:
  *  - Se basa en el TEXTO de pantalla: cambia según fabricante e idioma (probado
  *    en español/inglés de Android "puro"; Samsung/Xiaomi requieren ajustar palabras).
  *  - Google Play restringe el uso de Accesibilidad: para publicar habría que declararlo.
@@ -54,7 +53,7 @@ class ProtectionAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.i(TAG, "guardián conectado (etiqueta: $appKey)")
+        L.i(TAG, "guardián conectado (etiqueta: $appKey)")
         ProtectionState.notifyStatusChanged()
     }
 
@@ -99,7 +98,7 @@ class ProtectionAccessibilityService : AccessibilityService() {
 
     private fun block(tipo: String, extras: Map<String, Any?>, resultado: String = "bloqueado") {
         lastAction = System.currentTimeMillis()
-        Log.i(TAG, "pantalla protegida bloqueada: $tipo $extras")
+        L.i(TAG, "pantalla protegida bloqueada: $tipo $extras")
         performGlobalAction(GLOBAL_ACTION_BACK)
         performGlobalAction(GLOBAL_ACTION_HOME)
         EventLog.record(this, tipo, resultado, extras)

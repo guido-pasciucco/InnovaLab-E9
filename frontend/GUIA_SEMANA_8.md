@@ -3,8 +3,7 @@
 Este paquete cubre lo que el plan pide a Frontend/Mobile en las semanas 5, 6, 7 y 8, y reemplaza la versión de la Semana 4.
 Hacelo en este orden: **A** (JS, modo demo) → **B** (conectar al Backend real) → **C** (Kotlin) → **D** (pruebas) → **E** (subir a git).
 
-> ⚠️ **Lo más importante:** el código Kotlin (los de la Semana 4 y los nuevos) **no lo pude compilar**: no tengo el SDK de Android en mi entorno.
-> El TypeScript sí está verificado con `tsc` (cero errores). Si Gradle marca errores al compilar, copiame el error completo y lo corrijo.
+> **Estado (actualizado en la semana 11):** el TypeScript está verificado con `tsc` y el código Kotlin compila y funciona en emulador con el build `1.0.0-rc1` (ver `VALIDACION_RC1_RESULTADOS.md`).
 
 ---
 
@@ -38,7 +37,7 @@ El contrato exacto que espera la app está en `src/api/backend.ts` (sección 2) 
 
 ## A. Código JS (modo demo, sin backend)
 
-1. Copiá `src/` y `App.tsx` sobre los de tu proyecto `D:\Proyectos\BAProtege` (**borrá antes tu carpeta `src/`**, porque se eliminaron archivos viejos, como `PinVerification.mock.ts`).
+1. Copiar `src/` y `App.tsx` sobre los del proyecto React Native (**borrar antes la carpeta `src/`**, porque se eliminaron archivos viejos, como `PinVerification.mock.ts`).
 2. Si no la tenías de la Semana 4: `npm install @react-native-async-storage/async-storage`
 3. `npx react-native run-android`
 4. Probá el modo demo (cualquier mail y contraseña; **PIN 1234**):
@@ -96,7 +95,7 @@ Logs: `adb logcat -s BlockerVpnService EventLog EventUploader AccessibilityGuard
 
 ## E. Subir a git (rama `frontend`)
 
-Desde la carpeta del repo clonado (no desde `D:\Proyectos\BAProtege` si no es el repo):
+Desde la carpeta del repo clonado:
 
 ```
 git checkout frontend
@@ -125,14 +124,14 @@ git push origin frontend
 
 ## Avisos para UX/UI
 
-- **Corrección:** el código de vinculación son **6 letras o números** (ej. `G2T D8K`), no solo números como dije en la Semana 3. Así lo genera Backend.
+- **Corrección:** el código de vinculación son **6 letras o números** (ej. `G2T D8K`), no solo números como figuraba en el documento de la Semana 3. Así lo genera Backend.
 - El menor ve el **error del navegador** al bloquearse un sitio; nuestra pantalla aparece al tocar la **notificación**. Conviene que diseñen esa notificación.
 - "Solicitar acceso a un adulto" hoy muestra un consejo, porque no hay un tipo de evento aprobado para pedirlo. Si lo quieren, hay que pedírselo a Data Analytics + Backend.
 - Nuevas pantallas que necesitan diseño: **Crear/cambiar PIN**, **Sitios personalizados**, **Actividad** del celular protegido y los **chequeos anti-evasión** en el estado.
 
 ## Limitaciones conocidas
 
-1. **Kotlin sin compilar** (ver arriba).
+1. **Kotlin validado en emulador; falta validar en celulares reales** (ver arriba).
 2. **DNS privado estricto / DNS seguro del navegador** saltean el filtro. Ahora se detecta y avisa, y el guardián impide activarlo desde Ajustes, pero no impide que un navegador use su propio DNS seguro.
 3. El **guardián de Ajustes** depende del texto de pantalla: probar en el celular real (Samsung/Xiaomi pueden necesitar más palabras clave). Google Play restringe Accesibilidad y `QUERY_ALL_PACKAGES`: para publicar hay que justificarlos.
 4. **No se pueden impedir instalaciones** sin Device Owner (validado solo como prueba); se detectan y se avisa.

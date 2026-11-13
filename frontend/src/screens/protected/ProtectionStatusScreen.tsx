@@ -49,7 +49,10 @@ export function ProtectionStatusScreen({ navigation }: Props) {
       audit: 'desvincular_dispositivo',
     });
     if (!ok) return;
+    // Orden importante: primero apagar (así quitar el admin no cuenta como intento de evasión),
+    // después quitar el administrador (si no, la app queda imposible de desinstalar).
     await ProtectionModule.stopProtection();
+    await ProtectionModule.removeDeviceAdmin().catch(() => {});
     await ProtectionModule.flushEvents().catch(() => {});
     await ProtectionModule.clearBackendConfig();
     await api.logout();

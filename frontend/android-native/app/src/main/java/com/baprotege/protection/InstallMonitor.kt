@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
 
 /**
  * Detección de instalaciones (Semana 8). Se registra dentro del servicio VPN,
@@ -45,7 +44,7 @@ class InstallMonitor : BroadcastReceiver() {
         if (!ProtectionPrefs.isEnabled(context)) return
 
         val reason = classify(context, pkg) ?: return
-        Log.i("InstallMonitor", "app riesgosa instalada: $pkg ($reason)")
+        L.i("InstallMonitor", "app riesgosa instalada: $pkg ($reason)")
         EventLog.record(context, "intento_instalacion", "detectado", mapOf("paquete" to pkg))
         Notifier.warning(
             context,
