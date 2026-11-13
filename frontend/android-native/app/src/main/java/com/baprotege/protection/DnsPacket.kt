@@ -30,19 +30,30 @@ object DnsPacket {
         return sb.toString().lowercase()
     }
 
-    /** Respuesta NXDOMAIN ("ese dominio no existe") a la consulta recibida. null si la consulta está malformada. */
-    fun nxdomain(query: ByteArray): ByteArray? {
-        if (query.size < 12) return null
-        // Fin de la pregunta: nombre + 1 byte cero + QTYPE(2) + QCLASS(2)
+    /** Índice donde termina la primera pregunta (nombre + QTYPE + QCLASS), o null si está malformada. */
+    fun questionEnd(dns: ByteArray): Int? {
+        if (dns.size < 12) return null
         var i = 12
         while (true) {
-            if (i >= query.size) return null
-            val len = query[i].toInt() and 0xFF
+            if (i >= dns.size) return null
+            val len = dns[i].toInt() and 0xFF
             if (len == 0) break
+            if (len and 0xC0 != 0) return null
             i += len + 1
         }
         val end = i + 1 + 4
-        if (end > query.size) return null
+        return if (end > dns.size) null else end
+    }
+
+    /** Código de respuesta (0 = NOERROR, 3 = NXDOMAIN, ...). */
+    fun rcode(dns: ByteArray): Int = if (dns.size < 4) -1 else dns[3].toInt() and 0x0F
+
+    /** true si la respuesta vino truncada (TC): el cliente reintentaría por TCP, que no soportamos. */
+    fun isTruncated(dns: ByteArray): Boolean = dns.size >= 3 && (dns[2].toInt() and 0x02) != 0
+
+    /** Respuesta NXDOMAIN ("ese dominio no existe") a la consulta recibida. null si la consulta está malformada. */
+    fun nxdomain(query: ByteArray): ByteArray? {
+        val end = questionEnd(query) ?: return null
 
         val resp = query.copyOfRange(0, end)
         // byte 2: QR=1 | opcode y RD copiados de la consulta

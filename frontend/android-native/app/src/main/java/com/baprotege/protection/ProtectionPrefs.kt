@@ -91,7 +91,7 @@ object ProtectionPrefs {
         val p = prefs(ctx)
         val url = p.getString(KEY_API_URL, null) ?: return null
         val key = p.getString(KEY_API_KEY, null) ?: return null
-        val refresh = p.getString(KEY_REFRESH, null) ?: return null
+        val refresh = refreshToken(ctx) ?: return null
         val device = p.getString(KEY_DEVICE_ID, null) ?: return null
         return BackendConfig(url, key, refresh, device, appVersion(ctx), p.getBoolean(KEY_UPLOAD, false))
     }
@@ -100,15 +100,27 @@ object ProtectionPrefs {
         prefs(ctx).edit()
             .putString(KEY_API_URL, c.apiBaseUrl.trimEnd('/'))
             .putString(KEY_API_KEY, c.firebaseApiKey)
-            .putString(KEY_REFRESH, c.refreshToken)
             .putString(KEY_DEVICE_ID, c.deviceId)
             .putString(KEY_APP_VERSION, c.appVersion)
             .putBoolean(KEY_UPLOAD, c.uploadEnabled)
             .apply()
+        SecureStore.put(ctx, KEY_REFRESH, c.refreshToken)
+    }
+
+    /**
+     * Semana 10: el refresh token se guarda cifrado (SecureStore). Si quedó uno en
+     * texto plano de una versión anterior, se migra al leerlo.
+     */
+    private fun refreshToken(ctx: Context): String? {
+        SecureStore.get(ctx, KEY_REFRESH)?.let { return it }
+        val legacy = prefs(ctx).getString(KEY_REFRESH, null) ?: return null
+        SecureStore.put(ctx, KEY_REFRESH, legacy)
+        prefs(ctx).edit().remove(KEY_REFRESH).apply()
+        return legacy
     }
 
     fun updateRefreshToken(ctx: Context, token: String) {
-        prefs(ctx).edit().putString(KEY_REFRESH, token).apply()
+        SecureStore.put(ctx, KEY_REFRESH, token)
     }
 
     fun clearBackendConfig(ctx: Context) {
@@ -116,7 +128,8 @@ object ProtectionPrefs {
             .remove(KEY_API_URL).remove(KEY_API_KEY).remove(KEY_REFRESH)
             .remove(KEY_DEVICE_ID).remove(KEY_UPLOAD)
             .apply()
+        SecureStore.remove(ctx, KEY_REFRESH)
     }
 
-    fun appVersion(ctx: Context): String = prefs(ctx).getString(KEY_APP_VERSION, null) ?: "0.8.0"
+    fun appVersion(ctx: Context): String = prefs(ctx).getString(KEY_APP_VERSION, null) ?: "1.0.0-rc1"
 }

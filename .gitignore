@@ -21,6 +21,11 @@ build/
 
 # Configuración local de editores
 .vscode/
+# Firma de Android: la clave NUNCA va a git
+*.keystore
+*.jks
+*.apk
+*.aab
 
 #Material adicional
 docs/

@@ -82,8 +82,9 @@ object Blocklist {
 
     fun customCount(): Int = custom.size
 
-    /** "lotba", "personalizada" o null si el host no está bloqueado. */
+    /** "lotba", "personalizada", "anti_bypass" o null si el host no está bloqueado. */
     fun match(host: String): String? {
+        if (AntiBypassList.matches(host)) return "anti_bypass"
         var h = host.lowercase().trimEnd('.')
         val l = lotba
         val c = custom
