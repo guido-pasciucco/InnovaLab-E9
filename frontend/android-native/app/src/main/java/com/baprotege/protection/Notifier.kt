@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
@@ -25,6 +24,9 @@ object Notifier {
     private const val ID_BLOCKED = 2000
     private const val ID_DOWN = 2001
     private const val ID_WARNING = 2002
+    /** Semana 9: como máximo un aviso de "sitio bloqueado" cada 15 s (el evento se registra igual). */
+    private const val BLOCKED_MIN_INTERVAL_MS = 15_000L
+    @Volatile private var lastBlockedShownAt = 0L
 
     fun ensureChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -61,11 +63,18 @@ object Notifier {
         try {
             nm.notify(id, n)
         } catch (e: SecurityException) {
-            Log.w("Notifier", "sin permiso de notificaciones")
+            L.w("Notifier", "sin permiso de notificaciones")
         }
     }
 
-    fun blocked(ctx: Context, domain: String) = show(
+    fun blocked(ctx: Context, domain: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastBlockedShownAt < BLOCKED_MIN_INTERVAL_MS) return
+        lastBlockedShownAt = now
+        showBlocked(ctx, domain)
+    }
+
+    private fun showBlocked(ctx: Context, domain: String) = show(
         ctx, ID_BLOCKED, CHANNEL_BLOCKS,
         "Sitio bloqueado",
         "BA Protege+ bloqueó $domain porque es un sitio de apuestas no autorizado. Tocá para ver más.",

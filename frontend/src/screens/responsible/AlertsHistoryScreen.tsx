@@ -32,9 +32,20 @@ export function AlertsHistoryScreen() {
     await api.markAlertRead(a.alertaId).catch(() => reload());
   };
 
+  const unread = (data ?? []).filter((a) => !a.leida);
+  const markAllRead = async () => {
+    setData((prev) => prev?.map((x) => ({ ...x, leida: true })) ?? prev);
+    await Promise.all(unread.map((a) => api.markAlertRead(a.alertaId))).catch(() => reload());
+  };
+
   return (
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
+      {unread.length > 1 && (
+        <TouchableOpacity onPress={markAllRead} style={styles.markAll}>
+          <Text style={styles.markAllText}>Marcar todas como leídas</Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         contentContainerStyle={data?.length ? cardListStyle : undefined}
         data={data ?? []}
@@ -53,6 +64,8 @@ export function AlertsHistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
+  markAll: { alignSelf: 'flex-end', paddingVertical: 8 },
+  markAllText: { color: '#7C3AED', fontWeight: '600' },
   unread: { backgroundColor: '#F5F0FF' },
   error: { color: '#D32F2F', marginTop: 12 },
   empty: { color: '#888888', textAlign: 'center', marginTop: 32 },

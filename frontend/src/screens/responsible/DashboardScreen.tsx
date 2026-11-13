@@ -61,10 +61,15 @@ export function DashboardScreen({ navigation }: Props) {
     }
   }, [selectedId, loadEvents]);
 
+  // Semana 9: mientras el Inicio está en pantalla, se actualiza solo cada 60 s para que
+  // las alertas nuevas aparezcan sin tener que deslizar (todavía no hay notificaciones push).
+  const loadRef = React.useRef(load);
+  loadRef.current = load;
   useFocusEffect(
     React.useCallback(() => {
-      load();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      loadRef.current();
+      const id = setInterval(() => loadRef.current(), 60_000);
+      return () => clearInterval(id);
     }, [])
   );
 
@@ -74,7 +79,7 @@ export function DashboardScreen({ navigation }: Props) {
   const blocks = events.filter((e) => e.tipoEvento === 'acceso_bloqueado');
   const blocksThisWeek = blocks.filter((e) => new Date(e.timestampDispositivo).getTime() > weekAgo).length;
   const otherActivity = events.filter((e) => e.tipoEvento !== 'acceso_bloqueado').slice(0, 4);
-  const ui = selected ? ESTADO_UI[selected.estado] : null;
+  const ui = selected ? ESTADO_UI[selected.estado] ?? ESTADO_UI.sin_configurar : null;
 
   return (
     <ScrollView

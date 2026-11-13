@@ -43,6 +43,8 @@ export interface DeviceEvent {
   resultado: ResultadoEvento;
   /** ISO 8601 según el reloj del dispositivo (dato informativo, no confiable). */
   timestampDispositivo: string;
+  /** ISO 8601 asignado por Backend al recibirlo (solo en eventos leídos de Backend). */
+  timestampServidor?: string;
   secuencia: number;
   versionApp: string;
   versionLista?: string;

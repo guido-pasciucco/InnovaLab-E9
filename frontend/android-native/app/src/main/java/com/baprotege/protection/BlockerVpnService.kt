@@ -8,10 +8,11 @@ import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import java.io.FileInputStream
@@ -47,11 +48,14 @@ class BlockerVpnService : VpnService() {
 
         private const val NOTIFICATION_ID = 1001
         private const val DEDUP_WINDOW_MS = 60_000L
+        /** Intentos de usar DNS cifrado: se registran como evento como mucho cada 6 h por servidor. */
+        private const val BYPASS_DEDUP_MS = 6 * 60 * 60 * 1000L
 
         private const val VPN_ADDRESS = "10.111.222.1"
         private val FAKE_DNS = byteArrayOf(10, 111, 222.toByte(), 2)
         private const val FAKE_DNS_STR = "10.111.222.2"
-        private val UPSTREAM_DNS = listOf("8.8.8.8", "1.1.1.1")
+        /** Respaldo si no se puede leer el DNS de la red (semana 9: antes eran los únicos). */
+        private val FALLBACK_DNS = listOf("8.8.8.8", "1.1.1.1")
 
         fun startIntent(ctx: Context, fromBoot: Boolean = false) =
             Intent(ctx, BlockerVpnService::class.java).setAction(ACTION_START).putExtra(EXTRA_FROM_BOOT, fromBoot)
@@ -69,6 +73,8 @@ class BlockerVpnService : VpnService() {
     private val lastBlocked = ConcurrentHashMap<String, Long>()
     private var installMonitor: InstallMonitor? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    /** DNS de la red real (Wi-Fi / datos), leído al iniciar y en cada cambio de red. */
+    @Volatile private var upstreamDns: List<InetAddress> = emptyList()
 
     override fun onCreate() {
         super.onCreate()
@@ -109,7 +115,7 @@ class BlockerVpnService : VpnService() {
             .setBlocking(true)
 
         val fd = try { builder.establish() } catch (e: Exception) {
-            Log.e(TAG, "establish() falló", e); null
+            L.e(TAG, "establish() falló", e); null
         }
         if (fd == null) {
             ProtectionState.setVpnRunning(false)
@@ -133,7 +139,7 @@ class BlockerVpnService : VpnService() {
         ProtectionState.setVpnRunning(true)
         ProtectionWatchdog.schedule(this)
         BypassMonitor.check(this)
-        Log.i(TAG, "VPN iniciada")
+        L.i(TAG, "VPN iniciada")
     }
 
     private fun registerMonitors() {
@@ -142,18 +148,52 @@ class BlockerVpnService : VpnService() {
             val filter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
             ContextCompat.registerReceiver(this, r, filter, ContextCompat.RECEIVER_EXPORTED)
         }
-        // Cambios de red -> re-chequear DNS privado (Semana 6).
+        // Cambios de red (Wi-Fi <-> datos, reconexiones): actualizar el DNS real y
+        // re-chequear el DNS privado. Semana 9: se escuchan las redes reales (no la VPN).
         try {
             val cm = getSystemService(ConnectivityManager::class.java)
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build()
             val cb = object : ConnectivityManager.NetworkCallback() {
-                override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) {
-                    BypassMonitor.check(applicationContext)
-                }
+                override fun onAvailable(network: Network) = onNetworkChanged()
+                override fun onLost(network: Network) = onNetworkChanged()
+                override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) = onNetworkChanged()
             }
-            cm.registerDefaultNetworkCallback(cb)
+            cm.registerNetworkCallback(request, cb)
             networkCallback = cb
         } catch (e: Exception) {
-            Log.w(TAG, "no se pudo registrar el callback de red: ${e.message}")
+            L.w(TAG, "no se pudo registrar el callback de red: ${e.message}")
+        }
+        refreshUpstreamDns()
+    }
+
+    private fun onNetworkChanged() {
+        refreshUpstreamDns()
+        DnsCache.clear() // otra red puede resolver distinto (ej. portal cautivo)
+        BypassMonitor.check(applicationContext)
+        EventUploader.flushAsync(applicationContext) // volvió la red: subir lo pendiente
+    }
+
+    /** Lee los servidores DNS de las redes reales, sin incluir el DNS falso de la VPN. */
+    @Suppress("DEPRECATION")
+    private fun refreshUpstreamDns() {
+        try {
+            val cm = getSystemService(ConnectivityManager::class.java)
+            val servers = mutableListOf<InetAddress>()
+            for (n in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(n) ?: continue
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue
+                if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
+                cm.getLinkProperties(n)?.dnsServers?.forEach { addr ->
+                    if (addr.hostAddress != FAKE_DNS_STR && addr !in servers) servers.add(addr)
+                }
+            }
+            upstreamDns = servers
+            L.i(TAG, "DNS de la red: $servers")
+        } catch (e: Exception) {
+            L.w(TAG, "no se pudo leer el DNS de la red: ${e.message}")
         }
     }
 
@@ -177,7 +217,7 @@ class BlockerVpnService : VpnService() {
                 handlePacket(buf.copyOf(n), output)
             }
         } catch (e: Exception) {
-            if (running) Log.w(TAG, "readLoop terminó: ${e.message}")
+            if (running) L.w(TAG, "readLoop terminó: ${e.message}")
         }
     }
 
@@ -217,7 +257,7 @@ class BlockerVpnService : VpnService() {
                     synchronized(output) { output.write(packet) }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "error resolviendo consulta: ${e.message}")
+                L.w(TAG, "error resolviendo consulta: ${e.message}")
             }
         }
     }
@@ -227,30 +267,47 @@ class BlockerVpnService : VpnService() {
         val domain = host.removePrefix("www.")
         val now = System.currentTimeMillis()
         val last = lastBlocked[domain]
-        if (last != null && now - last < DEDUP_WINDOW_MS) return
+        val window = if (origin == "anti_bypass") BYPASS_DEDUP_MS else DEDUP_WINDOW_MS
+        if (last != null && now - last < window) return
         lastBlocked[domain] = now
-        Log.i(TAG, "BLOQUEADO: $domain ($origin)")
+
+        if (origin == "anti_bypass") {
+            // Alguien configuró un DNS cifrado (navegador o "DNS privado"): lo frenamos sin
+            // mostrar la pantalla de "sitio bloqueado", y se registra como intento de evasión.
+            L.i(TAG, "DNS cifrado frenado: $domain")
+            EventLog.record(this, "intento_bypass", "bloqueado", mapOf("tipoBypass" to "dns_privado", "dominio" to domain))
+            return
+        }
+        L.i(TAG, "BLOQUEADO: $domain ($origin)")
         EventLog.record(this, "acceso_bloqueado", "bloqueado", mapOf("dominio" to domain, "origenLista" to origin))
         Notifier.blocked(this, domain)
         ProtectionState.notifyDomainBlocked(domain)
     }
 
-    /** Reenvía la consulta a un DNS real por un socket "protegido" (que NO vuelve a entrar a la VPN). */
+    /**
+     * Reenvía la consulta a un DNS real por un socket "protegido" (que NO vuelve a
+     * entrar a la VPN). Semana 9: primero la caché, después el DNS de la red real
+     * (funciona en redes que bloquean 8.8.8.8, como escuelas u oficinas) y por
+     * último los públicos.
+     */
     private fun forward(query: ByteArray): ByteArray? {
-        for (server in UPSTREAM_DNS) {
+        DnsCache.get(query)?.let { return it }
+        val servers = upstreamDns + FALLBACK_DNS.map { InetAddress.getByName(it) }
+        for (addr in servers) {
             try {
                 DatagramSocket().use { socket ->
                     protect(socket)
-                    socket.soTimeout = 3000
-                    val addr = InetAddress.getByName(server)
+                    socket.soTimeout = 2500
                     socket.send(DatagramPacket(query, query.size, addr, 53))
                     val buf = ByteArray(4096)
                     val resp = DatagramPacket(buf, buf.size)
                     socket.receive(resp)
-                    return buf.copyOf(resp.length)
+                    val answer = buf.copyOf(resp.length)
+                    DnsCache.put(query, answer)
+                    return answer
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "DNS $server no respondió: ${e.message}")
+                L.w(TAG, "DNS ${addr.hostAddress} no respondió: ${e.message}")
             }
         }
         return null
@@ -270,7 +327,7 @@ class BlockerVpnService : VpnService() {
 
     /** Nos quitaron la VPN: desde Ajustes, o porque se activó otra VPN. */
     override fun onRevoke() {
-        Log.w(TAG, "VPN revocada")
+        L.w(TAG, "VPN revocada")
         stopVpn(clean = true)
         val app = applicationContext
         if (ProtectionPrefs.isEnabled(app)) {

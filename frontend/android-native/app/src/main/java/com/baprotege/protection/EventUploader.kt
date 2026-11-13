@@ -1,7 +1,6 @@
 package com.baprotege.protection
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -31,20 +30,42 @@ object EventUploader {
     @Volatile private var idToken: String? = null
     @Volatile private var idTokenExpiresAt = 0L
 
+    /**
+     * Semana 9: espera creciente tras un fallo (1, 2, 4, 8, 16, 30 min) para no
+     * gastar batería y datos intentando cada vez que se registra un evento sin conexión.
+     */
+    private const val MIN_BACKOFF_MS = 60_000L
+    private const val MAX_BACKOFF_MS = 30 * 60_000L
+    @Volatile private var nextAttemptAt = 0L
+    @Volatile private var backoffMs = MIN_BACKOFF_MS
+
+    /** Intento "de fondo": respeta la espera tras un fallo. */
     fun flushAsync(ctx: Context) {
+        if (System.currentTimeMillis() < nextAttemptAt) return
         val app = ctx.applicationContext
         executor.execute {
-            try { flushBlocking(app) } catch (e: Exception) { Log.w(TAG, "flush falló: ${e.message}") }
+            try { flushBlocking(app) } catch (e: Exception) { L.w(TAG, "flush falló: ${e.message}") }
         }
     }
 
-    /** Corre en el hilo del executor. Devuelve cuántos eventos quedan pendientes. */
+    /** Intento pedido por la app (ej. al abrirla): ignora la espera. Devuelve cuántos quedan pendientes. */
     fun flushOn(ctx: Context, callback: (Int) -> Unit) {
         val app = ctx.applicationContext
+        nextAttemptAt = 0L
         executor.execute {
             val left = try { flushBlocking(app) } catch (e: Exception) { EventLog.pendingCount(app) }
             callback(left)
         }
+    }
+
+    private fun onFailure() {
+        nextAttemptAt = System.currentTimeMillis() + backoffMs
+        backoffMs = minOf(backoffMs * 2, MAX_BACKOFF_MS)
+    }
+
+    private fun onSuccess() {
+        nextAttemptAt = 0L
+        backoffMs = MIN_BACKOFF_MS
     }
 
     fun invalidateToken() { idToken = null; idTokenExpiresAt = 0L }
@@ -58,12 +79,16 @@ object EventUploader {
             if (code == 401) { invalidateToken(); code = post(ctx, cfg, event) }
             val id = event.optString("eventoId")
             when {
-                code in 200..299 || code == 409 -> EventLog.removePending(ctx, id)
+                code in 200..299 || code == 409 -> { EventLog.removePending(ctx, id); onSuccess() }
                 code == 400 || code == 422 -> {
-                    Log.w(TAG, "Backend rechazó el evento $id ($code); se descarta: $event")
+                    L.w(TAG, "Backend rechazó el evento $id ($code); se descarta: $event")
                     EventLog.removePending(ctx, id)
                 }
-                else -> { Log.i(TAG, "Backend no disponible ($code); se reintenta más tarde"); break }
+                else -> {
+                    onFailure()
+                    L.i(TAG, "Backend no disponible ($code); próximo intento en ${backoffMs / 60000} min")
+                    break
+                }
             }
         }
         return EventLog.pendingCount(ctx)
@@ -87,7 +112,7 @@ object EventUploader {
             conn.disconnect()
             code
         } catch (e: Exception) {
-            Log.i(TAG, "sin conexión con Backend: ${e.message}")
+            L.i(TAG, "sin conexión con Backend: ${e.message}")
             -1
         }
     }
@@ -107,7 +132,7 @@ object EventUploader {
             val body = "grant_type=refresh_token&refresh_token=${URLEncoder.encode(cfg.refreshToken, "UTF-8")}"
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
             if (conn.responseCode !in 200..299) {
-                Log.w(TAG, "no se pudo renovar el token (${conn.responseCode})")
+                L.w(TAG, "no se pudo renovar el token (${conn.responseCode})")
                 conn.disconnect()
                 return null
             }
@@ -119,7 +144,7 @@ object EventUploader {
             idTokenExpiresAt = System.currentTimeMillis() + json.optString("expires_in", "3600").toLong() * 1000
             idToken
         } catch (e: Exception) {
-            Log.i(TAG, "sin conexión para renovar token: ${e.message}")
+            L.i(TAG, "sin conexión para renovar token: ${e.message}")
             null
         }
     }

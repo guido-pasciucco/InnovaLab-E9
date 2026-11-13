@@ -36,6 +36,10 @@ export function describeEvent(e: DeviceEvent): { title: string; severity: Severi
         : { title: `Intento de ${what} sin autorización`, severity: 'warning' };
     }
     case 'intento_bypass':
+      if (e.tipoBypass === 'dns_privado' && e.resultado === 'bloqueado') {
+        // Semana 9-10: el filtro frenó un servicio de DNS cifrado (ej. dns.google).
+        return { title: `Se frenó un intento de usar DNS cifrado${e.dominio ? ` (${e.dominio})` : ''}`, severity: 'warning' };
+      }
       return { title: e.tipoBypass ? BYPASS_LABEL[e.tipoBypass] : 'Intento de evadir la protección', severity: 'critical' };
     case 'intento_instalacion':
       return { title: `Se instaló una app que puede evadir el filtro${e.paquete ? ` (${e.paquete})` : ''}`, severity: 'warning' };
@@ -73,5 +77,7 @@ export function formatWhen(iso: string | null | undefined): string {
 
 /** El badge de UX usa los estados del módulo; Backend usa los de Firestore. */
 export function estadoToStatus(estado: EstadoDispositivo): ProtectionStatus {
-  return ({ activo: 'active', advertencia: 'warning', caido: 'inactive', sin_configurar: 'unconfigured' } as const)[estado];
+  const map: Record<string, ProtectionStatus> = { activo: 'active', advertencia: 'warning', caido: 'inactive', sin_configurar: 'unconfigured' };
+  // Semana 10: un estado desconocido (dato viejo o nuevo en Backend) no debe romper la pantalla.
+  return map[estado] ?? 'unconfigured';
 }

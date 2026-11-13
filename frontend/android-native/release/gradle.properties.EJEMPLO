@@ -1,0 +1,7 @@
+# Copiar estas líneas en el gradle.properties de TU USUARIO, no en el del repo:
+#   Windows: C:\Users\<tu-usuario>\.gradle\gradle.properties
+# Así las contraseñas nunca terminan en git.
+BAPROTEGE_STORE_FILE=baprotege-release.keystore
+BAPROTEGE_KEY_ALIAS=baprotege
+BAPROTEGE_STORE_PASSWORD=CAMBIAR
+BAPROTEGE_KEY_PASSWORD=CAMBIAR

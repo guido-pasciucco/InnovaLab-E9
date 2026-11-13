@@ -1,7 +1,6 @@
 package com.baprotege.protection
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -37,15 +36,26 @@ object EventLog {
         return f.format(Date(ms))
     }
 
+    /** Semana 9: copias en memoria para no leer el archivo entero en cada evento. */
+    private val memory = HashMap<String, JSONArray>()
+
     private fun read(ctx: Context, name: String): JSONArray {
+        memory[name]?.let { return it }
+        val loaded = readFromDisk(ctx, name)
+        memory[name] = loaded
+        return loaded
+    }
+
+    private fun readFromDisk(ctx: Context, name: String): JSONArray {
         val f = File(ctx.applicationContext.filesDir, name)
         if (!f.exists()) return JSONArray()
         return try { JSONArray(f.readText()) } catch (e: Exception) {
-            Log.w(TAG, "archivo $name dañado, se reinicia", e); JSONArray()
+            L.w(TAG, "archivo $name dañado, se reinicia", e); JSONArray()
         }
     }
 
     private fun write(ctx: Context, name: String, arr: JSONArray) {
+        memory[name] = arr
         val dir = ctx.applicationContext.filesDir
         val tmp = File(dir, "$name.tmp")
         tmp.writeText(arr.toString())
@@ -84,7 +94,7 @@ object EventLog {
             } else pending
             write(app, PENDING_FILE, trimmed)
         }
-        Log.i(TAG, "evento $tipoEvento/$resultado $extras")
+        L.i(TAG, "evento $tipoEvento/$resultado $extras")
         ProtectionState.notifyEventRecorded(e)
         EventUploader.flushAsync(app)
         return e

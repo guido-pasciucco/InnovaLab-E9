@@ -9,6 +9,7 @@ import {
 } from './ProtectionModule';
 import type { DeviceEvent, LocalEventInput } from '../api/types';
 import { ENV } from '../config/env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Mock con la misma semántica que el Kotlin, en memoria.
@@ -64,6 +65,7 @@ export const ProtectionModule: ProtectionModuleInterface = {
   async requestVpnPermission() { return true; },
   async isDeviceAdminActive() { return true; },
   async requestDeviceAdmin() { return true; },
+  async removeDeviceAdmin() { console.log('[mock] Administrador quitado'); },
   async isAccessibilityServiceEnabled() { return true; },
   openAccessibilitySettings() { console.log('[mock] Abriendo Ajustes > Accesibilidad'); },
   openVpnSettings() { console.log('[mock] Abriendo Ajustes > VPN'); },
@@ -134,4 +136,9 @@ export const ProtectionModule: ProtectionModuleInterface = {
   async configureBackend() {},
   async clearBackendConfig() {},
   async flushEvents() { return 0; },
+
+  // En el mock no hay Keystore: se usa AsyncStorage (solo para desarrollo y la vista web).
+  async secureSet(key: string, value: string) { await AsyncStorage.setItem(`@secure/${key}`, value); },
+  async secureGet(key: string) { return AsyncStorage.getItem(`@secure/${key}`); },
+  async secureRemove(key: string) { await AsyncStorage.removeItem(`@secure/${key}`); },
 };

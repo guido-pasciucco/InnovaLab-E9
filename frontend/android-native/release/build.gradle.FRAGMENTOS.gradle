@@ -1,0 +1,35 @@
+// =====================================================================
+// Fragmentos para android/app/build.gradle (build candidato y final).
+// NO reemplazar el archivo entero: copiar cada bloque en su lugar.
+// =====================================================================
+
+// 1) Dentro de android { defaultConfig { ... } } — versión de la app.
+//    Build candidato (semana 10):
+        versionCode 10
+        versionName "1.0.0-rc1"
+//    Build final (semana 11), si el candidato se valida sin bugs críticos:
+//      versionCode 11
+//      versionName "1.0.0"
+
+// 2) Dentro de android { signingConfigs { ... } } — agregar "release" al lado de "debug".
+//    Los datos salen de gradle.properties del USUARIO (no del repo): ver
+//    android-native/release/gradle.properties.EJEMPLO
+        release {
+            if (project.hasProperty('BAPROTEGE_STORE_FILE')) {
+                storeFile file(BAPROTEGE_STORE_FILE)
+                storePassword BAPROTEGE_STORE_PASSWORD
+                keyAlias BAPROTEGE_KEY_ALIAS
+                keyPassword BAPROTEGE_KEY_PASSWORD
+            }
+        }
+
+// 3) Dentro de android { buildTypes { release { ... } } } — reemplazar
+//    "signingConfig signingConfigs.debug" por:
+            signingConfig signingConfigs.release
+
+// 4) Al principio del archivo, cambiar a true para achicar y ofuscar el APK:
+def enableProguardInReleaseBuilds = true
+
+// 5) Confirmar que exista (la plantilla de React Native ya lo trae);
+//    lo necesita L.kt para no escribir logs en release:
+//    android { buildFeatures { buildConfig true } }
