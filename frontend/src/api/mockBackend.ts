@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Alert, Device, DeviceEvent, LotbaResponse } from './types';
 import { DEFAULT_BLOCKLIST, DEFAULT_BLOCKLIST_VERSION } from '../data/defaultBlocklist';
 
@@ -9,7 +10,9 @@ import { DEFAULT_BLOCKLIST, DEFAULT_BLOCKLIST_VERSION } from '../data/defaultBlo
  */
 
 const delay = (ms = 350) => new Promise<void>((r) => setTimeout(() => r(), ms));
-const MOCK_PIN = '1234';
+/** PIN del modo demo: el que se creó en "Creá tu PIN" o, si nunca se creó (ej. el celular protegido), 1234. */
+const DEFAULT_MOCK_PIN = '1234';
+const MOCK_PIN_KEY = '@baprotege/mockPin';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60000).toISOString();
@@ -148,11 +151,19 @@ export const mockBackend = {
     if (i >= 0) devices.splice(i, 1);
   },
 
-  async setPin() {
+  // Bug corregido en semana 9: antes el PIN creado se ignoraba y siempre valía 1234.
+  async setPin(pin: string) {
     await delay();
+    try {
+      await AsyncStorage.setItem(MOCK_PIN_KEY, pin);
+    } catch {}
   },
   async verifyPin(pin: string) {
     await delay(400);
-    return pin === MOCK_PIN;
+    let saved: string | null = null;
+    try {
+      saved = await AsyncStorage.getItem(MOCK_PIN_KEY);
+    } catch {}
+    return pin === (saved ?? DEFAULT_MOCK_PIN);
   },
 };

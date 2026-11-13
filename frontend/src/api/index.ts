@@ -5,6 +5,7 @@ import { mockBackend as mock } from './mockBackend';
 import * as firebaseAuth from './firebaseAuth';
 import { clearSession, getSession, saveSession } from './session';
 import type { Session } from './firebaseAuth';
+import { listDerivedAlerts, markDerivedAlertRead } from '../services/derivedAlerts';
 
 export { ApiError, friendlyMessage } from './errors';
 export * from './types';
@@ -91,8 +92,11 @@ export const api = {
   devicesAreReal: ready('listDevices'),
   listMyDevices: () => (ready('listDevices') ? real.listMyDevices() : mock.listMyDevices()),
   getDeviceEvents: (deviceId: string) => (ready('deviceEvents') ? real.getDeviceEvents(deviceId) : mock.getDeviceEvents(deviceId)),
-  listAlerts: () => (ready('alerts') ? real.listAlerts() : mock.listAlerts()),
-  markAlertRead: (id: string) => (ready('alerts') ? real.markAlertRead(id) : mock.markAlertRead(id)),
+  // Alertas: endpoint real si existe; si no, derivadas de los eventos reales; en modo demo, simuladas.
+  listAlerts: () =>
+    ready('alerts') ? real.listAlerts() : ready('deviceEvents') ? listDerivedAlerts() : mock.listAlerts(),
+  markAlertRead: (id: string) =>
+    ready('alerts') ? real.markAlertRead(id) : ready('deviceEvents') ? markDerivedAlertRead(id) : mock.markAlertRead(id),
   unlinkDevice: (id: string) => (ready('unlink') ? real.unlinkDevice(id) : mock.unlinkDevice(id)),
 
   // ---------- Sitios personalizados ----------
@@ -105,7 +109,7 @@ export const api = {
 
   // ---------- PIN ----------
 
-  setPin: (pin: string) => (ready('pin') ? real.setPin(pin) : mock.setPin()),
+  setPin: (pin: string) => (ready('pin') ? real.setPin(pin) : mock.setPin(pin)),
 
   /** Verifica el PIN contra Backend. En el dispositivo protegido usa su propia ruta (con límite de intentos). */
   async verifyPin(pin: string): Promise<boolean> {
