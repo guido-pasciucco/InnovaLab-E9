@@ -105,7 +105,7 @@ Por defecto, la API escucha en `http://localhost:3000`. Se puede configurar el p
 
 ### Credenciales y seguridad
 
-Para Firebase Admin, coloca la cuenta de servicio en `backend/serviceAccountKey.json`. El archivo está excluido de Git: no lo subas, compartas ni incluyas en capturas o logs. Usa únicamente cuentas y datos de prueba; las escrituras contra el sandbox modifican datos reales de ese proyecto.
+Para desarrollo local, coloca la cuenta de servicio en `backend/serviceAccountKey.json` o define `GOOGLE_APPLICATION_CREDENTIALS` con la ruta a un archivo de credenciales. En Render, súbelo como Secret File y configura esa variable con su ruta dentro del servicio. El archivo está excluido de Git: no lo subas, compartas ni incluyas en capturas o logs. Usa únicamente cuentas y datos de prueba; las escrituras contra el sandbox modifican datos reales de ese proyecto.
 
 El script `backend/scripts/auth-smoke-test.js` carga variables de prueba desde `backend/.env`, que también está excluido de Git. No uses cuentas ni datos personales reales. La Web API Key se usa en los clientes de Firebase Auth; no reemplaza la credencial privilegiada de Firebase Admin.
 
