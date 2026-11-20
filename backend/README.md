@@ -472,3 +472,31 @@ Mobile detecta hechos en el dispositivo y Backend autentica, valida y persiste e
 * **Backend + Mobile:** qué eventos generan alerta, si la notificación push está dentro del MVP y cómo cada responsable consulta y marca como leídas sus alertas. El campo `estado` único de una alerta compartida no representa lecturas independientes de varios responsables; la propuesta es acordar estado por destinatario antes de implementar ese contrato.
 
 Backend ya implementó la ingesta autenticada e idempotente y `GET /api/devices` más `GET /api/devices/{deviceId}/events`, que Mobile necesita para ver dispositivos y actividad. Quedan pendientes la prueba integrada de esos endpoints con Mobile, la generación/consulta/lectura de alertas, las reglas de notificación push y la aprobación final de los campos de analítica.
+
+## Despliegue de prueba en Render
+
+El servicio web debe usar como **Root Directory** la carpeta `backend/` del repositorio (no `backend/src/` ni `backend/scripts/`). Configuración inicial recomendada:
+
+| Campo en Render | Valor |
+|---|---|
+| Language | Node |
+| Branch | La rama que contiene los cambios a desplegar (preferentemente `main` después de integrar el PR) |
+| Root Directory | `backend` |
+| Build Command | `npm ci` |
+| Start Command | `npm start` |
+
+Render proporciona `PORT`; `src/server.js` escucha en ese puerto y en `0.0.0.0`.
+
+### Credenciales de Firebase Admin
+
+No agregues la cuenta de servicio al repositorio ni a una variable visible en un archivo de configuración. En el Dashboard de Render, dentro de **Environment → Secret Files**, crea un archivo llamado `firebase-service-account.json` con el contenido del JSON de la cuenta de servicio del proyecto sandbox. Render lo monta en `/etc/secrets/firebase-service-account.json`. Agrega también esta variable de entorno:
+
+```text
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
+```
+
+La inicialización de `src/config/firebase.js` usa esa ruta cuando la variable está definida. Para desarrollo local, si no se define, conserva el fallback a `backend/serviceAccountKey.json`, que está ignorado por Git. No copies credenciales a logs ni las envíes por chat.
+
+Después de configurar el secreto y desplegar, verifica `https://<dominio-del-servicio>/health`. Esa ruta confirma que Express responde, pero no comprueba por sí sola el acceso a Firebase. Antes de compartir la URL con Mobile, valida además autenticación y operaciones de Firestore en el sandbox con cuentas de prueba.
+
+El plan Free puede suspender el servicio por inactividad, por lo que la primera solicitud puede tardar en responder. Es suficiente para un smoke test; para pruebas compartidas frecuentes o una demo, evalúa un plan siempre activo y revisa el costo vigente con el equipo.
