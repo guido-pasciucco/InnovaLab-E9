@@ -7,9 +7,42 @@ const {
   parseEventLimit,
   recordDeviceEvent
 } = require("../services/deviceEvents.service");
+const { verifyDevicePin } = require("../services/pin.service");
 const { HttpError } = require("../errors/HttpError");
 
 const router = express.Router();
+
+router.post(
+  "/:deviceId/verify-pin",
+  requireFirebaseAuth,
+  requireProvider("anonymous"),
+  async (req, res, next) => {
+    try {
+      if (req.firebaseUser.uid !== req.params.deviceId) {
+        throw new HttpError(
+          403,
+          "device_access_denied",
+          "El token no pertenece al dispositivo indicado."
+        );
+      }
+
+      const valido = await verifyDevicePin(req.params.deviceId, req.body?.pin);
+      return res.status(200).json({ valido });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        if (error.retryAfterSeconds) {
+          res.set("Retry-After", String(error.retryAfterSeconds));
+        }
+        return res.status(error.status).json({
+          error: error.code,
+          message: error.message
+        });
+      }
+
+      return next(error);
+    }
+  }
+);
 
 router.get(
   "/",
