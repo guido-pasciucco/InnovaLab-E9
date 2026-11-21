@@ -23,7 +23,6 @@ Las versiones de la lista oficial son inmutables. La regla acordada para el prot
 
 - Alertas, consulta y marcado de lectura, y notificaciones push.
 - CRUD de listas personalizadas en Backend.
-- Gestión y verificación de PIN en Backend.
 - Desvinculación mediante API.
 - Restricción efectiva de instalación de aplicaciones.
 - Despliegue de producción, observabilidad y endurecimiento operativo.
@@ -60,7 +59,8 @@ El repositorio contiene el código fuente de la app y archivos nativos de refere
 | Ingerir evento del dispositivo | `POST /api/devices/{deviceId}/events` | Implementado; falta prueba E2E con Mobile y validación de la taxonomía |
 | Consultar versión LOTBA vigente | `GET /api/blocklists/lotba/current` | Implementado; verificar el puntero de versión en el sandbox |
 | Estado de la API | `GET /health` | Implementado; no comprueba conectividad con Firebase |
-| Alertas, listas personalizadas, PIN y desvinculación | — | No implementados en Backend |
+| Alertas, listas personalizadas y desvinculación | — | No implementados en Backend |
+| Crear y verificar PIN | `PUT /api/responsible-profile/pin`, `POST /api/responsible-profile/pin/verify`, `POST /api/devices/{deviceId}/verify-pin` | Implementado; requiere configurar `PIN_PEPPER` y habilitarlo en Mobile |
 
 Las rutas protegidas requieren un Firebase ID token en el encabezado `Authorization`. Backend comprueba el proveedor y la identidad autenticada; no confía en un UID enviado en el cuerpo de la solicitud. El canje de un código crea y vincula el dispositivo, pero el perfil protegido se crea en una solicitud posterior.
 
@@ -68,7 +68,7 @@ La ingesta de eventos acepta un evento por solicitud, valida sus campos y usa `e
 
 ### Estado de integración Mobile
 
-En `frontend/src/config/env.ts`, `FIREBASE_WEB_API_KEY` está vacía y los flags `listDevices`, `deviceEvents` e `ingestEvents` están en `false`. Por eso la app usa datos simulados para esos flujos, aunque sus endpoints ya existen en Backend. Los flags para alertas, listas personalizadas, PIN y desvinculación también están desactivados y esas API todavía no existen en Backend.
+En `frontend/src/config/env.ts`, `FIREBASE_WEB_API_KEY` está vacía, por lo que la app sigue en modo demo aunque los flags de dispositivos y eventos estén habilitados. Alertas, listas personalizadas y desvinculación siguen simuladas y sus API todavía no existen en Backend. La API de PIN ya está implementada, pero requiere configurar `PIN_PEPPER` en el entorno y que Mobile habilite su flag después de probarla.
 
 Los flujos de registro, login, vinculación, perfil protegido y descarga LOTBA tienen llamadas al Backend en el cliente, pero requieren configurar la URL y la Web API Key del proyecto Firebase de pruebas para usarlos. La clave de Firebase Admin no debe incluirse en Mobile.
 
@@ -136,8 +136,9 @@ Invoke-RestMethod "http://localhost:3000/api/blocklists/lotba/current?hash=HASH_
 
 - `npm run health --prefix backend`: smoke check HTTP de `/health`.
 - `npm run import:lotba --prefix backend`: validación y vista previa sin escrituras.
+- `npm test --prefix backend`: pruebas del hash, lockout, reautenticación de cambio de PIN y rutas HTTP (con Firestore simulado).
 - `backend/scripts/auth-smoke-test.js`: pruebas manuales de Firebase Auth, perfiles y vinculación.
-- `backend/package.json` todavía tiene un comando `test` de placeholder; no hay una suite automatizada completa.
+- Aún no hay una suite automatizada completa ni pruebas integradas de todos los flujos contra Firebase.
 - Los flujos de perfil y vinculación se han probado contra Firebase sandbox. Las rutas de dispositivos y eventos requieren prueba integrada contra Firestore y Mobile; no se deben considerar validadas por una prueba de mock local.
 - La compilación y las pruebas de la protección nativa Android siguen pendientes.
 
@@ -148,8 +149,8 @@ Invoke-RestMethod "http://localhost:3000/api/blocklists/lotba/current?hash=HASH_
 3. Habilitar en Mobile los flags de dispositivos y eventos cuando el equipo confirme la integración.
 4. Integrar el código nativo en un proyecto Android anfitrión, compilarlo y validar permisos, sincronización y bloqueo en dispositivos/emuladores compatibles.
 5. Acordar reglas, destinatarios, lectura y posible push de alertas.
-6. Definir e implementar los contratos restantes: listas personalizadas, PIN y desvinculación.
-7. Añadir pruebas automatizadas y preparar la demo integrada.
+6. Definir e implementar los contratos restantes: listas personalizadas y desvinculación; configurar y probar el PIN seguro ya implementado.
+7. Ampliar las pruebas automatizadas y preparar la demo integrada.
 
 ## Estructura del repositorio
 

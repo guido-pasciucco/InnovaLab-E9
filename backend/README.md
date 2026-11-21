@@ -48,7 +48,7 @@ Se definieron 7 entidades principales:
 | nombre | string | Nombre del adulto responsable tal como lo ingresa en el formulario, para mostrar en la app |
 | fechaNacimiento | string | Fecha de nacimiento en formato ISO `YYYY-MM-DD`, normalizada desde el formulario |
 | email | string | Usado para login (Firebase Auth) |
-| pinHash | string | Hash (no texto plano) del PIN de 4-6 dígitos que protege configuraciones críticas |
+| pinHash | string | Hash seguro (nunca texto plano) del PIN de 4 dígitos que protege configuraciones críticas |
 | fechaCreacion | timestamp | Cuándo se registró el responsable |
 
 El formulario de registro de Frontend solicita email, contraseña, repetición de contraseña, nombre y fecha de nacimiento. Firebase Authentication gestiona la contraseña; la contraseña y su repetición no se guardan en el perfil de Firestore. El perfil `responsables/{UID}` conserva los datos de la aplicación asociados al UID de Firebase Authentication.
@@ -375,16 +375,16 @@ El cliente de prueba está en `scripts/auth-smoke-test.js`. El backend se organi
 
 ## Cuestiones a definir y validar con el resto del equipo, incluyendo propuestas desde el área de BACKEND. Si no se recibe un OK ni objeciones dentro de un plazo razonable (aproximadamente una semana), las propuestas se considerarán aprobadas; los roles involucrados deben revisarlas y plantear cualquier objeción dentro de ese plazo.
 
-**1- (PENDIENTE) Validación del PIN** — *Backend \+ Frontend/Mobile*  
-¿Se valida contra el backend (comparando el hash) o completamente en el dispositivo protegido, sin llamar a la API?
+**1- (IMPLEMENTADO; PENDIENTE DE HABILITAR EN MOBILE) Validación del PIN** — *Backend + Frontend/Mobile*
+Backend almacena un hash `scrypt` con salt aleatorio y un secreto `PIN_PEPPER` del servidor; nunca guarda el PIN en texto plano. La creación/cambio y verificación se hacen mediante:
 
-* **PROPUESTAS:** validar contra el backend (comparando pinHash), no localmente en el dispositivo. Razones:  
-  * El PIN nunca queda expuesto en el dispositivo del menor, ni siquiera como hash.  
-  * Permite límite de intentos centralizado (ej. 3 intentos fallidos → bloqueo temporal \+ alerta al responsable).  
-  * El responsable puede cambiar el PIN sin necesidad de tocar físicamente el dispositivo protegido.  
-  * Cada intento (exitoso o fallido) se integra naturalmente como evento intento\_modificacion\_config de la taxonomía ya definida con Data Analytics.  
-  * Es el mismo patrón que usan referentes del benchmark (ej. Qustodio valida contra la contraseña del adulto de forma centralizada, no local).  
-* **Pendiente de definir junto con esta decisión:** qué hacer si el dispositivo protegido intenta un cambio crítico estando sin conexión — para el MVP, proponemos no permitir el cambio hasta recuperar conexión, en vez de guardar el intento en cola local.
+* `PUT /api/responsible-profile/pin` con `{ "pin": "...." }` — requiere responsable autenticado. El primer PIN se puede crear sin uno anterior; para cambiarlo, se requiere una verificación correcta del PIN actual en los últimos cinco minutos.
+* `POST /api/responsible-profile/pin/verify` con `{ "pin": "...." }` — el responsable verifica su propio PIN.
+* `POST /api/devices/{deviceId}/verify-pin` con `{ "pin": "...." }` — el dispositivo anónimo verifica el PIN de cualquiera de sus responsables vinculados.
+
+El servidor aplica tres intentos fallidos y bloqueos progresivos de 30 segundos, 2 minutos, 10 minutos y 30 minutos; las verificaciones válidas reinician el contador. Los bloqueos persisten en Firestore y son independientes para el responsable y para cada dispositivo. El endpoint de verificación devuelve `{ "valido": true|false }`; durante un bloqueo responde `429` e incluye `Retry-After`.
+
+El PIN acepta cuatro dígitos y rechaza `1234` y cuatro dígitos repetidos. Para habilitar estos endpoints, configura `PIN_PEPPER` como secreto de entorno (al menos 32 bytes aleatorios) en Render y en el `.env` local. El cliente conserva un bloqueo local para UX; el control del backend es el que aplica el límite autoritativo. Mobile debe cambiar `ENDPOINTS_READY.pin` a `true` después de configurar el secreto y completar pruebas integradas. La decisión de no permitir cambios críticos sin conexión se mantiene.
 
 **2- (PENDIENTE) Confirmación en tiempo real** — *Backend \+ Frontend/Mobile*  
 Para la confirmación simultánea de vinculación en ambos celulares (QR / código de 6 dígitos), ¿alcanza con polling periódico o se necesita un listener en tiempo real de Firestore del lado del dispositivo?
@@ -496,6 +496,18 @@ GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 ```
 
 La inicialización de `src/config/firebase.js` usa esa ruta cuando la variable está definida. Para desarrollo local, si no se define, conserva el fallback a `backend/serviceAccountKey.json`, que está ignorado por Git. No copies credenciales a logs ni las envíes por chat.
+
+### Secreto del PIN
+
+En Render agrega `PIN_PEPPER` como variable secreta de entorno, distinta de la cuenta de servicio. Genera un valor aleatorio localmente, por ejemplo:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Configura el valor generado en el Dashboard de Render y, para desarrollo local, en `backend/.env`. No lo guardes en el repositorio ni lo compartas. Si se pierde o se rota, los PIN existentes ya no se podrán verificar y deberán configurarse de nuevo. Sin este secreto, las rutas de PIN responden `503` de forma explícita; el resto de la API puede seguir funcionando.
+
+En Render, crea `PIN_PEPPER` en **Environment → Environment Variables** como valor secreto y guarda/despliega el cambio. Configúralo antes de habilitar el flag de PIN en Mobile.
 
 Después de configurar el secreto y desplegar, verifica `https://<dominio-del-servicio>/health`. Esa ruta confirma que Express responde, pero no comprueba por sí sola el acceso a Firebase. Antes de compartir la URL con Mobile, valida además autenticación y operaciones de Firestore en el sandbox con cuentas de prueba.
 
