@@ -4,7 +4,7 @@ BA Protege+ es un proyecto de simulación full-stack de INNOVA LAB para diseñar
 
 El repositorio integra en `main` el código de Backend y Mobile/Frontend. La app contempla dos modos de uso: responsable y dispositivo protegido. Mobile realiza la detección y aplicación local de la protección; Backend autentica y autoriza solicitudes, administra vínculos y perfiles, recibe eventos y distribuye la lista oficial.
 
-> **Estado del proyecto:** los flujos principales de cuenta y vinculación, la sincronización de LOTBA y las API para dispositivos y eventos están implementados. Sin embargo, la app todavía usa mocks para dispositivos, actividad y eventos porque los flags correspondientes siguen desactivados. La integración Android nativa aún requiere compilación y pruebas en dispositivos. Alertas y otros servicios aún no están implementados en Backend.
+> **Estado del proyecto:** los flujos principales de cuenta y vinculación, la sincronización de LOTBA y las API para dispositivos, eventos, PIN y alertas persistidas están implementados en Backend. La integración con Mobile y Firebase sandbox todavía requiere pruebas; algunos flags del cliente siguen desactivados. La integración Android nativa aún requiere compilación y pruebas en dispositivos.
 
 ## Objetivos y alcance
 
@@ -13,7 +13,7 @@ El repositorio integra en `main` el código de Backend y Mobile/Frontend. La app
 - Distribuir versiones de la lista oficial de LOTBA.
 - Aplicar el bloqueo localmente en el dispositivo y mantener la última lista sincronizada para uso sin conexión.
 - Recibir eventos de los dispositivos y permitir consultar su estado y actividad.
-- Definir e implementar alertas en una etapa posterior, junto con Mobile, Data Analytics y QA.
+- Persistir y consultar alertas derivadas de eventos; las notificaciones push y alertas por dispositivo sin reporte siguen pendientes.
 
 ### Regla de bloqueo LOTBA
 
@@ -21,7 +21,7 @@ Las versiones de la lista oficial son inmutables. La regla acordada para el prot
 
 ### Fuera del alcance implementado
 
-- Alertas, consulta y marcado de lectura, y notificaciones push.
+- Notificaciones push y alertas automáticas por dispositivo sin reporte.
 - CRUD de listas personalizadas en Backend.
 - Desvinculación mediante API.
 - Restricción efectiva de instalación de aplicaciones.
@@ -57,18 +57,22 @@ El repositorio contiene el código fuente de la app y archivos nativos de refere
 | Listar dispositivos del responsable | `GET /api/devices` | Implementado; falta integración/prueba E2E desde Mobile |
 | Consultar actividad del dispositivo | `GET /api/devices/{deviceId}/events?limit=50` | Implementado; falta prueba integrada contra Firestore |
 | Ingerir evento del dispositivo | `POST /api/devices/{deviceId}/events` | Implementado; falta prueba E2E con Mobile y validación de la taxonomía |
+| Listar alertas del responsable | `GET /api/alerts` | Implementado; requiere desplegar el índice de Firestore y probar con Mobile |
+| Marcar alerta como leída | `POST /api/alerts/{alertaId}/read` | Implementado; estado de lectura independiente por responsable |
 | Consultar versión LOTBA vigente | `GET /api/blocklists/lotba/current` | Implementado; verificar el puntero de versión en el sandbox |
 | Estado de la API | `GET /health` | Implementado; no comprueba conectividad con Firebase |
-| Alertas, listas personalizadas y desvinculación | — | No implementados en Backend |
+| Listas personalizadas y desvinculación | — | No implementados en Backend |
 | Crear y verificar PIN | `PUT /api/responsible-profile/pin`, `POST /api/responsible-profile/pin/verify`, `POST /api/devices/{deviceId}/verify-pin` | Implementado; requiere configurar `PIN_PEPPER` y habilitarlo en Mobile |
 
 Las rutas protegidas requieren un Firebase ID token en el encabezado `Authorization`. Backend comprueba el proveedor y la identidad autenticada; no confía en un UID enviado en el cuerpo de la solicitud. El canje de un código crea y vincula el dispositivo, pero el perfil protegido se crea en una solicitud posterior.
 
-La ingesta de eventos acepta un evento por solicitud, valida sus campos y usa `eventoId` como identificador de documento para permitir reintentos idempotentes. Backend registra `timestampServidor` y actualiza `ultimoReporte`; el estado es un reporte del cliente y no una comprobación independiente de la protección real.
+La ingesta de eventos acepta un evento por solicitud, valida sus campos y usa `eventoId` como identificador de documento para permitir reintentos idempotentes. Backend registra `timestampServidor`, actualiza `ultimoReporte` y crea en la misma transacción una alerta cuando el evento coincide con las reglas actuales de Mobile. Los destinatarios se capturan desde los responsables vinculados al recibir el evento y cada uno tiene su propio estado de lectura. Solo se generan alertas para eventos nuevos; no hay backfill ni notificaciones push. El estado del dispositivo es un reporte del cliente y no una comprobación independiente de la protección real.
+
+Antes de habilitar el endpoint de alertas en el entorno Firebase, despliega el índice definido en `firestore.indexes.json` con `firebase deploy --only firestore:indexes --project TU_PROJECT_ID` desde la raíz del repositorio.
 
 ### Estado de integración Mobile
 
-En `frontend/src/config/env.ts`, `FIREBASE_WEB_API_KEY` está vacía, por lo que la app sigue en modo demo aunque los flags de dispositivos y eventos estén habilitados. Alertas, listas personalizadas y desvinculación siguen simuladas y sus API todavía no existen en Backend. La API de PIN ya está implementada, pero requiere configurar `PIN_PEPPER` en el entorno y que Mobile habilite su flag después de probarla.
+En `frontend/src/config/env.ts`, `FIREBASE_WEB_API_KEY` está vacía, por lo que la app sigue en modo demo aunque algunos flags estén habilitados. La API de alertas ya existe, pero Mobile debe probarla y activar su flag después de desplegar el índice de Firestore. Listas personalizadas y desvinculación siguen simuladas y sus API todavía no existen en Backend. La API de PIN requiere configurar `PIN_PEPPER` en el entorno y que Mobile habilite su flag después de probarla.
 
 Los flujos de registro, login, vinculación, perfil protegido y descarga LOTBA tienen llamadas al Backend en el cliente, pero requieren configurar la URL y la Web API Key del proyecto Firebase de pruebas para usarlos. La clave de Firebase Admin no debe incluirse en Mobile.
 
@@ -136,7 +140,7 @@ Invoke-RestMethod "http://localhost:3000/api/blocklists/lotba/current?hash=HASH_
 
 - `npm run health --prefix backend`: smoke check HTTP de `/health`.
 - `npm run import:lotba --prefix backend`: validación y vista previa sin escrituras.
-- `npm test --prefix backend`: pruebas del hash, lockout, reautenticación de cambio de PIN y rutas HTTP (con Firestore simulado).
+- `npm test --prefix backend`: pruebas del PIN, alertas, lecturas por responsable y rutas HTTP (con Firestore simulado).
 - `backend/scripts/auth-smoke-test.js`: pruebas manuales de Firebase Auth, perfiles y vinculación.
 - Aún no hay una suite automatizada completa ni pruebas integradas de todos los flujos contra Firebase.
 - Los flujos de perfil y vinculación se han probado contra Firebase sandbox. Las rutas de dispositivos y eventos requieren prueba integrada contra Firestore y Mobile; no se deben considerar validadas por una prueba de mock local.
@@ -148,7 +152,7 @@ Invoke-RestMethod "http://localhost:3000/api/blocklists/lotba/current?hash=HASH_
 2. Confirmar el contrato de eventos con Data Analytics y QA; probar ingesta, reintentos, duplicados, autorización y lectura de actividad.
 3. Habilitar en Mobile los flags de dispositivos y eventos cuando el equipo confirme la integración.
 4. Integrar el código nativo en un proyecto Android anfitrión, compilarlo y validar permisos, sincronización y bloqueo en dispositivos/emuladores compatibles.
-5. Acordar reglas, destinatarios, lectura y posible push de alertas.
+5. Desplegar el índice de Firestore y completar la prueba integrada de alertas con Mobile, QA y Data Analytics; mantener desactivado el flag móvil hasta validarla.
 6. Definir e implementar los contratos restantes: listas personalizadas y desvinculación; configurar y probar el PIN seguro ya implementado.
 7. Ampliar las pruebas automatizadas y preparar la demo integrada.
 

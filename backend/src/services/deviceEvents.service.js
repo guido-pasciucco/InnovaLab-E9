@@ -2,8 +2,10 @@ const net = require("node:net");
 const { FieldValue } = require("firebase-admin/firestore");
 const { db } = require("../config/firebase");
 const { HttpError } = require("../errors/HttpError");
+const { buildAlertRecord } = require("./alerts.service");
 
 const DEVICE_COLLECTION = "dispositivos";
+const ALERT_COLLECTION = "alertas";
 const PROTECTED_PROFILE_COLLECTION = "perfilProtegido";
 const PROTECTED_PROFILE_DOCUMENT = "datos";
 const EVENT_TYPES = new Set([
@@ -356,10 +358,11 @@ async function recordDeviceEvent({ deviceId, authenticatedDeviceId, rawEvent }) 
       throw new HttpError(404, "device_not_found", "El dispositivo no existe.");
     }
 
+    const device = deviceSnapshot.data();
     transaction.update(deviceRef, {
       ultimoReporte: FieldValue.serverTimestamp(),
       ...(!eventSnapshot.exists
-        ? eventStatusUpdate(event, deviceSnapshot.data())
+        ? eventStatusUpdate(event, device)
         : {})
     });
 
@@ -372,6 +375,15 @@ async function recordDeviceEvent({ deviceId, authenticatedDeviceId, rawEvent }) 
       dispositivoId: deviceId,
       timestampServidor: FieldValue.serverTimestamp()
     });
+
+    const alert = buildAlertRecord({ event, deviceId, device });
+    if (alert) {
+      transaction.create(
+        db.collection(ALERT_COLLECTION).doc(alert.alertaId),
+        alert
+      );
+    }
+
     return true;
   });
 
