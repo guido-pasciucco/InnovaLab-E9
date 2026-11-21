@@ -1,5 +1,6 @@
 const express = require("express");
 const authRoutes = require("./routes/auth.routes");
+const alertRoutes = require("./routes/alerts.routes");
 const deviceRoutes = require("./routes/devices.routes");
 const responsibleRoutes = require("./routes/responsible.routes");
 const linkCodeRoutes = require("./routes/linkCodes.routes");
@@ -15,6 +16,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api", authRoutes);
+app.use("/api/alerts", alertRoutes);
 app.use("/api/responsible-profile", responsibleRoutes);
 app.use("/api/devices", deviceRoutes);
 app.use("/api/link-codes", linkCodeRoutes);

@@ -90,12 +90,14 @@ El perfil protegido se almacena separado de los metadatos técnicos del disposit
 
 | ALERTAS (raíz) |  |  |
 | :---- | :---- | :---- |
-| alertaId | string | Identificador propio |
-| eventoOrigenId | string | (referencia a EVENTOS) ID del evento que disparó esta alerta |
-| mensaje | string | Texto ya armado para mostrar/notificar (ej. "La protección en el dispositivo de Juan está inactiva") |
-| fecha | timestamp | Cuándo se generó |
-| estado | string (enum) | "generada" / "entregada" / "leida". Si el responsable ya la abrió/leyó |
-| responsableId | array\<string\> | (referencia a RESPONSABLES) Responsable asociado**Nota:** se movió este campo desde EVENTOS para denormalizar y evitar un número innecesario y costoso de consultas al servidor. |
+| alertaId | string | SHA-256 determinista de dispositivoId y eventoOrigenId; evita duplicar alertas en reintentos |
+| eventoOrigenId | string | ID del evento que disparó esta alerta |
+| dispositivoId | string | Dispositivo que reportó el evento |
+| tipoEvento | string | Tipo de evento que generó la alerta |
+| mensaje | string | Texto para mostrar; aclara que el dispositivo reportó el hecho |
+| fecha | timestamp | Hora de generación asignada por el servidor |
+| responsablesIds | array\<string\> | Responsables vinculados al dispositivo al recibir el evento |
+| responsablesLeidosIds | array\<string\> | Responsables que marcaron esta alerta como leída |
 
 | CODIGOS\_VINCULACION (raíz) |  |  |
 | :---- | :---- | :---- |
@@ -308,6 +310,8 @@ Para que este recorrido sea completo, queda por definir cómo recibe la app del 
 | Listar dispositivos vinculados | GET /api/devices | Responsable autenticado con email/contraseña |
 | Consultar actividad de un dispositivo | GET /api/devices/{deviceId}/events | Responsable autenticado y vinculado al dispositivo |
 | Registrar evento de dispositivo | POST /api/devices/{deviceId}/events | Sesión anónima del mismo dispositivo |
+| Listar alertas | GET /api/alerts | Responsable autenticado con email/contraseña |
+| Marcar alerta como leída | POST /api/alerts/{alertaId}/read | Responsable destinatario autenticado con email/contraseña |
 | Crear perfil protegido | POST /api/devices/{deviceId}/protected-profile | Responsable autenticado y vinculado al dispositivo |
 | Verificar autenticación (prueba) | GET /api/test-auth | Responsable o sesión anónima |
 
@@ -337,7 +341,21 @@ Los tipos que puede reportar Mobile son `proteccion_activada`, `proteccion_desac
 
 La escritura del evento y la actualización de `ultimoReporte` son atómicas. La actualización idempotente usa `eventoId` como ID del documento: primera recepción responde `201`; reintento con el mismo ID responde `200` y `duplicado: true`. Una nueva recepción actualiza el reporte, pero no vuelve a aplicar cambios de estado. Los eventos de activación/desactivación, permisos e intentos de evasión actualizan el estado reportado solo si su `secuencia` supera la última secuencia de estado guardada. Ese estado refleja lo que reportó el cliente; el backend no verifica directamente el estado de la VPN o de los permisos del sistema. Un evento fuera de orden se conserva y no se descarta.
 
-La ingesta **no genera alertas ni notificaciones push** todavía. El catálogo y las reglas de alerta siguen sujetos al acuerdo descrito en el punto 9 de esta sección.
+La ingesta crea en una misma transacción el evento y, si corresponde, su alerta. Solo se generan alertas para eventos nuevos (no hay backfill de eventos existentes): `proteccion_desactivada`, `cambio_permiso`, `intento_bypass`, `intento_instalacion` y `intento_modificacion_config` con resultado `fallido`. `acceso_bloqueado`, `sync_lista` y los intentos de modificación autorizados quedan como actividad, sin alerta. Las reglas coinciden con las que actualmente usa Mobile para derivar alertas.
+
+Los destinatarios se copian de `dispositivos/{deviceId}.responsablesIds` al momento de recibir el evento. Cada responsable marca su lectura por separado en `responsablesLeidosIds`; la lectura de uno no afecta a los demás. El mensaje indica que el hecho fue reportado por el dispositivo, no verificado independientemente por Backend.
+
+`GET /api/alerts?limit=50` devuelve `{ "alertas": [...] }`, ordenadas por fecha descendente. `limit` admite enteros entre 1 y 100 (50 por defecto). Cada alerta incluye `alertaId`, `eventoOrigenId`, `dispositivoId`, `tipoEvento`, `mensaje`, `fecha` (ISO 8601) y `leida` para el responsable autenticado.
+
+`POST /api/alerts/{alertaId}/read` marca como leída la alerta para ese responsable y devuelve `{ "leida": true }`. La operación es idempotente; un usuario que no sea destinatario recibe `404`.
+
+La consulta de alertas requiere el índice compuesto definido en `firestore.indexes.json`. Desde la raíz del repositorio, despliega los índices al proyecto Firebase correspondiente antes de usar el endpoint:
+
+```powershell
+firebase deploy --only firestore:indexes --project TU_PROJECT_ID
+```
+
+La API no envía notificaciones push; la entrega push queda fuera de este alcance.
 
 ### **Contrato para crear el perfil protegido**
 
@@ -446,10 +464,10 @@ Definir si Backend queda como dueño técnico del catálogo, con el compromiso d
 **8- (APROBADO) Campo responsableId en EVENTOS y referencia en ALERTAS** — *Para: Backend*  
 El campo responsableId en EVENTOS quedó marcado como duda en la tabla de entidades. Propuesta: eliminarlo de EVENTOS (se puede derivar consultando el dispositivo cuando haga falta), y en cambio agregar responsablesIds: array\<string\> en ALERTAS, denormalizado al momento de crearla — necesario para poder listar "todas las alertas de un responsable" de forma eficiente, tal como se definió en el objetivo de esa entidad.
 
-**9- (PARCIAL: INGESTA DE EVENTOS IMPLEMENTADA; REGLAS DE ALERTAS PENDIENTES)** — *Backend + Mobile + Data Analytics + QA*
-Mobile detecta hechos en el dispositivo y Backend autentica, valida y persiste eventos de forma idempotente mediante `POST /api/devices/{deviceId}/events`. El cliente no escribe directamente en Firestore ni decide destinatarios o alertas. Falta acordar qué eventos producen alertas, cómo se consultan y marcan como leídas y si se enviarán notificaciones push.
+**9- (INGESTA Y ALERTAS PERSISTIDAS IMPLEMENTADAS; PENDIENTE PRUEBA INTEGRADA)** — *Backend + Mobile + Data Analytics + QA*
+Mobile detecta hechos en el dispositivo y Backend autentica, valida y persiste eventos de forma idempotente mediante `POST /api/devices/{deviceId}/events`. Backend deriva las alertas en la misma transacción, determina destinatarios desde Firestore y expone consulta y lectura independiente por responsable. El cliente no escribe directamente en Firestore ni decide destinatarios o alertas. Las notificaciones push no forman parte de esta entrega.
 
-**Propuesta inicial de contrato para validar:**
+**Contrato de ingesta implementado:**
 
 * Mobile envía eventos de a uno a `POST /api/devices/{deviceId}/events`, autenticado con el ID token de la sesión anónima del dispositivo.
 * Backend exige que el UID verificado del token coincida con `{deviceId}` y que el dispositivo esté registrado. Los responsables nunca se aceptan desde el body.
@@ -457,21 +475,25 @@ Mobile detecta hechos en el dispositivo y Backend autentica, valida y persiste e
 * Backend asigna `timestampServidor` y `dispositivoId`, valida el enum y los campos específicos, y rechaza campos no permitidos. `timestampDispositivo` es informativo y no confiable.
 * Si el dispositivo está sin conexión, Mobile conserva temporalmente los eventos y los reintenta al recuperar conectividad. La retención y los límites de cola deberán acordarse con QA y Data Analytics.
 
-**Propuesta inicial para separar actividad de alertas:**
+**Reglas implementadas para separar actividad de alertas:**
 
-* `acceso_bloqueado`: registrar como actividad; no enviar una notificación push por cada sitio bloqueado.
-* `proteccion_desactivada` y `cambio_permiso`: candidatos a generar una alerta para los responsables vinculados, sujeto a que Mobile confirme qué cambios puede detectar de manera fiable.
-* `dispositivo_sin_reporte`: lo genera Backend mediante una tarea programada a partir de heartbeats ausentes; no lo declara el propio dispositivo.
-* Una alerta registra el evento de origen y sus destinatarios. Crear el documento de alerta no equivale a confirmar que la push se entregó o se mostró. La entrega push, reintentos y estados de lectura son etapas separadas.
+* Generan alerta: `proteccion_desactivada`, `cambio_permiso`, `intento_bypass`, `intento_instalacion` y `intento_modificacion_config` con resultado `fallido`, según las reglas actuales de Mobile.
+* `acceso_bloqueado` y `sync_lista` se conservan como actividad; no se genera una alerta por cada sitio bloqueado.
+* `dispositivo_sin_reporte` continúa pendiente: deberá generarlo Backend mediante una tarea programada a partir de heartbeats ausentes, no declararlo el propio dispositivo.
+* Cada alerta registra el evento de origen, los destinatarios capturados al recibirlo y lecturas independientes. Su creación no equivale a confirmar una entrega push.
+* Solo se generan alertas para eventos recibidos después del despliegue; no se migran eventos históricos ni estados locales de lectura.
 
 **Puntos que deben confirmar los roles antes de cerrar el contrato:**
 
 * **Mobile:** eventos detectables de forma fiable en cada plataforma; datos disponibles para cada evento; soporte de cola offline, identificador estable y secuencia; y mecanismo de autenticación del dispositivo.
 * **Data Analytics:** confirmar que el subconjunto de tipos y campos implementado corresponde al enum y a sus métricas; definir campos futuros y tratamiento analítico de duplicados, eventos tardíos y huecos de secuencia. No se agregarán tipos nuevos al enum sin su aprobación.
 * **QA:** límites de tamaño/lote, política de reintentos, tolerancia a eventos fuera de orden y criterios para validar la idempotencia.
-* **Backend + Mobile:** qué eventos generan alerta, si la notificación push está dentro del MVP y cómo cada responsable consulta y marca como leídas sus alertas. El campo `estado` único de una alerta compartida no representa lecturas independientes de varios responsables; la propuesta es acordar estado por destinatario antes de implementar ese contrato.
+* **Mobile:** configurar la URL del Backend, probar `GET /api/alerts` y `POST /api/alerts/{alertaId}/read` y habilitar el flag de alertas solo después de una prueba integrada.
+* **Data Analytics:** validar que las reglas existentes y los campos guardados alcanzan para las métricas; no se agregaron tipos nuevos al enum.
+* **QA:** verificar la idempotencia evento-alerta, destinatarios múltiples, lecturas independientes, orden y autorización con Firebase sandbox.
+* **Backend + Mobile:** acordar posteriormente si la entrega push forma parte del MVP.
 
-Backend ya implementó la ingesta autenticada e idempotente y `GET /api/devices` más `GET /api/devices/{deviceId}/events`, que Mobile necesita para ver dispositivos y actividad. Quedan pendientes la prueba integrada de esos endpoints con Mobile, la generación/consulta/lectura de alertas, las reglas de notificación push y la aprobación final de los campos de analítica.
+Backend implementó la ingesta autenticada e idempotente, `GET /api/devices`, `GET /api/devices/{deviceId}/events` y los endpoints de alertas. Quedan pendientes las pruebas integradas con Mobile y Firebase sandbox, la habilitación del flag móvil, el seguimiento analítico y la decisión sobre notificaciones push.
 
 ## Despliegue de prueba en Render
 
