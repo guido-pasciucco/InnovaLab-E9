@@ -6,6 +6,7 @@ serviceAccountKey.json
 *serviceAccountKey*.json
 .env
 .env.local
+.env.*
 
 # Logs
 npm-debug.log*
@@ -18,6 +19,7 @@ Thumbs.db
 # Carpetas de compilación
 dist/
 build/
+**/node_modules/
 
 # Configuración local de editores
 .vscode/
